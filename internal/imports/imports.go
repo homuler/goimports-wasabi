@@ -9,7 +9,6 @@
 package imports
 
 import (
-	"bufio"
 	"bytes"
 	"fmt"
 	"go/ast"
@@ -17,12 +16,8 @@ import (
 	"go/parser"
 	"go/printer"
 	"go/token"
-	"io"
-	"regexp"
-	"strconv"
+	"sort"
 	"strings"
-
-	"golang.org/x/tools/go/ast/astutil"
 )
 
 // Options is golang.org/x/tools/imports.Options with extra internal-only options.
@@ -60,49 +55,6 @@ func Process(filename string, src []byte, opt *Options) (formatted []byte, err e
 	return formatFile(fileSet, file, src, adjust, opt)
 }
 
-// FixImports returns a list of fixes to the imports that, when applied,
-// will leave the imports in the same state as Process. src and opt must
-// be specified.
-//
-// Note that filename's directory influences which imports can be chosen,
-// so it is important that filename be accurate.
-func FixImports(filename string, src []byte, opt *Options) (fixes []*ImportFix, err error) {
-	fileSet := token.NewFileSet()
-	file, _, err := parse(fileSet, filename, src, opt)
-	if err != nil {
-		return nil, err
-	}
-
-	return getFixes(fileSet, file, filename, opt.Env)
-}
-
-// ApplyFixes applies all of the fixes to the file and formats it. extraMode
-// is added in when parsing the file. src and opts must be specified, but no
-// env is needed.
-func ApplyFixes(fixes []*ImportFix, filename string, src []byte, opt *Options, extraMode parser.Mode) (formatted []byte, err error) {
-	// Don't use parse() -- we don't care about fragments or statement lists
-	// here, and we need to work with unparseable files.
-	fileSet := token.NewFileSet()
-	parserMode := parser.Mode(0)
-	if opt.Comments {
-		parserMode |= parser.ParseComments
-	}
-	if opt.AllErrors {
-		parserMode |= parser.AllErrors
-	}
-	parserMode |= extraMode
-
-	file, err := parser.ParseFile(fileSet, filename, src, parserMode)
-	if file == nil {
-		return nil, err
-	}
-
-	// Apply the fixes to the file.
-	apply(fileSet, file, fixes)
-
-	return formatFile(fileSet, file, src, nil, opt)
-}
-
 // formatFile formats the file syntax tree.
 // It may mutate the token.FileSet.
 //
@@ -110,25 +62,8 @@ func ApplyFixes(fixes []*ImportFix, filename string, src []byte, opt *Options, e
 // with the original source (formatFile's src parameter) and the
 // formatted file, and returns the postpocessed result.
 func formatFile(fset *token.FileSet, file *ast.File, src []byte, adjust func(orig []byte, src []byte) []byte, opt *Options) ([]byte, error) {
-	mergeImports(file)
-	sortImports(opt.LocalPrefix, fset.File(file.Pos()), file)
-	var spacesBefore []string // import paths we need spaces before
-	for _, impSection := range astutil.Imports(fset, file) {
-		// Within each block of contiguous imports, see if any
-		// import lines are in different group numbers. If so,
-		// we'll need to put a space between them so it's
-		// compatible with gofmt.
-		lastGroup := -1
-		for _, importSpec := range impSection {
-			importPath, _ := strconv.Unquote(importSpec.Path.Value)
-			groupNum := importGroup(opt.LocalPrefix, importPath)
-			if groupNum != lastGroup && lastGroup != -1 {
-				spacesBefore = append(spacesBefore, importPath)
-			}
-			lastGroup = groupNum
-		}
-
-	}
+	sf := NewSourceFile(src, fset, file, opt)
+	sf.squashImportDecls()
 
 	printerMode := printer.UseSpaces
 	if opt.TabIndent {
@@ -137,19 +72,13 @@ func formatFile(fset *token.FileSet, file *ast.File, src []byte, adjust func(ori
 	printConfig := &printer.Config{Mode: printerMode, Tabwidth: opt.TabWidth}
 
 	var buf bytes.Buffer
-	err := printConfig.Fprint(&buf, fset, file)
+	err := printConfig.Fprint(&buf, sf.fileSet, sf.astFile)
 	if err != nil {
 		return nil, err
 	}
 	out := buf.Bytes()
 	if adjust != nil {
 		out = adjust(src, out)
-	}
-	if len(spacesBefore) > 0 {
-		out, err = addImportSpaces(bytes.NewReader(out), spacesBefore)
-		if err != nil {
-			return nil, err
-		}
 	}
 
 	out, err = format.Source(out)
@@ -311,41 +240,176 @@ func matchSpace(orig []byte, src []byte) []byte {
 	return b.Bytes()
 }
 
-var impLine = regexp.MustCompile(`^\s+(?:[\w\.]+\s+)?"(.+?)"`)
+type SourceFile struct {
+	src         []byte
+	fileSet     *token.FileSet
+	tokenFile   *token.File
+	astFile     *ast.File
+	options     *Options
+	importDecls []*ImportDecl
+}
 
-func addImportSpaces(r io.Reader, breaks []string) ([]byte, error) {
-	var out bytes.Buffer
-	in := bufio.NewReader(r)
-	inImports := false
-	done := false
+func NewSourceFile(src []byte, fileSet *token.FileSet, astFile *ast.File, options *Options) *SourceFile {
+	tokenFile := fileSet.File(astFile.Pos())
+	sf := SourceFile{src: src, fileSet: fileSet, tokenFile: tokenFile, astFile: astFile, options: options}
+	idr := newImportDeclReader(src, tokenFile, astFile, options.LocalPrefix)
+
 	for {
-		s, err := in.ReadString('\n')
-		if err == io.EOF {
+		decl, ok := idr.readNext()
+		if !ok {
 			break
-		} else if err != nil {
-			return nil, err
+		}
+		sf.importDecls = append(sf.importDecls, decl)
+	}
+	return &sf
+}
+
+// sync synchronize astFile and tokenFile with importDecls.
+// This will change astFile and tokenFile.
+func (sf *SourceFile) sync() {
+	start := token.Pos(sf.tokenFile.Size())
+	end := token.NoPos
+
+	for _, decl := range sf.importDecls {
+		if decl.pos < start {
+			start = decl.pos
+		}
+		if decl.end > end {
+			end = decl.end
+		}
+	}
+
+	sw := newSourceWriter(sf.tokenFile)
+	sw.writeByte(sf.src[:start-1]...)
+
+	for _, decl := range sf.importDecls {
+		sw.writeImportDecl(decl)
+	}
+
+	if sw.pos > end {
+		// If the total length of import declarations get larger than the original, reconstruct AST to correct other tokens' positions.
+		sw.writeByte(sf.src[end-1:]...)
+		sf.src = sw.output
+		sf.fileSet = token.NewFileSet()
+		file, err := parseFile(sf.fileSet, sf.tokenFile.Name(), sf.src, sf.options)
+
+		if err != nil {
+			panic(fmt.Sprintf("Failed to reconstruct AST: %v", err))
+		}
+		sf.astFile = file
+		sf.tokenFile.SetLinesForContent(sf.src)
+		return
+	}
+
+	for sw.pos < end {
+		// TODO: is it correct?
+		sw.writeNewline()
+	}
+	sw.writeByte(sf.src[end-1:]...)
+	sf.src = sw.output
+	sf.tokenFile.SetLinesForContent(sf.src)
+
+	// Remove merged declarations and comments from AST.
+	newDecls := make([]ast.Decl, 0, len(sf.astFile.Decls))
+	mergedComments := make([]*ast.CommentGroup, 0)
+
+	for _, decl := range sf.importDecls {
+		decl.Node.Doc = nil // reset Doc to sort comments
+		for _, doc := range decl.Doc {
+			if decl.Node.Doc == nil {
+				decl.Node.Doc = doc
+				continue
+			}
+			decl.Node.Doc.List = append(decl.Node.Doc.List, doc.List...)
+			mergedComments = append(mergedComments, doc)
 		}
 
-		if !inImports && !done && strings.HasPrefix(s, "import") {
-			inImports = true
-		}
-		if inImports && (strings.HasPrefix(s, "var") ||
-			strings.HasPrefix(s, "func") ||
-			strings.HasPrefix(s, "const") ||
-			strings.HasPrefix(s, "type")) {
-			done = true
-			inImports = false
-		}
-		if inImports && len(breaks) > 0 {
-			if m := impLine.FindStringSubmatch(s); m != nil {
-				if m[1] == breaks[0] {
-					out.WriteByte('\n')
-					breaks = breaks[1:]
+		decl.Node.Specs = nil // reset Specs to sort specs
+		for _, spec := range decl.Specs {
+			spec.Node.Doc = nil // reset Doc to sort comments
+			for _, doc := range spec.Doc {
+				if spec.Node.Doc == nil {
+					spec.Node.Doc = doc
+					continue
 				}
+				spec.Node.Doc.List = append(spec.Node.Doc.List, doc.List...)
+				mergedComments = append(mergedComments, doc)
+			}
+
+			spec.Node.Comment = nil // reset Comment to sort comments
+			for _, doc := range spec.Comment {
+				if spec.Node.Comment == nil {
+					spec.Node.Comment = doc
+					continue
+				}
+				spec.Node.Comment.List = append(spec.Node.Comment.List, doc.List...)
+				mergedComments = append(mergedComments, doc)
+			}
+
+			decl.Node.Specs = append(decl.Node.Specs, spec.Node)
+		}
+		newDecls = append(newDecls, decl.Node)
+	}
+
+	for _, d := range sf.astFile.Decls {
+		if _, ok := astImportDecl(d); ok {
+			continue
+		}
+		newDecls = append(newDecls, d)
+	}
+	sf.astFile.Decls = newDecls
+
+	sort.Sort(byCommentPos(sf.astFile.Comments))
+	if len(mergedComments) > 0 {
+		cindex := 0
+		for _, c := range mergedComments {
+			for sf.astFile.Comments[cindex] != c {
+				cindex++
+			}
+			sf.astFile.Comments = append(sf.astFile.Comments[:cindex], sf.astFile.Comments[cindex+1:]...)
+		}
+	}
+}
+
+func (sf *SourceFile) squashImportDecls() {
+	if len(sf.importDecls) <= 1 {
+		return
+	}
+
+	var cdecl *ImportDecl
+	var decl *ImportDecl
+	for _, d := range sf.importDecls {
+		c, d := d.distillCImports()
+		if c != nil {
+			if cdecl == nil {
+				cdecl = c
+			} else {
+				cdecl.merge(c)
 			}
 		}
-
-		fmt.Fprint(&out, s)
+		if d != nil {
+			if decl == nil {
+				decl = d
+			} else {
+				decl.merge(d)
+			}
+		}
 	}
-	return out.Bytes(), nil
+	decls := make([]*ImportDecl, 0, 2)
+
+	if cdecl != nil {
+		decls = append(decls, cdecl)
+	}
+	if decl != nil {
+		decl.dedupe()
+		decls = append(decls, decl)
+	}
+	sf.importDecls = decls
+	sf.sync()
 }
+
+type byCommentPos []*ast.CommentGroup
+
+func (x byCommentPos) Len() int           { return len(x) }
+func (x byCommentPos) Swap(i, j int)      { x[i], x[j] = x[j], x[i] }
+func (x byCommentPos) Less(i, j int) bool { return x[i].Pos() < x[j].Pos() }
