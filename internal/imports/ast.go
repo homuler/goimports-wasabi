@@ -46,7 +46,7 @@ const (
 	Local
 )
 
-func specGroup(s *ast.ImportSpec, localPrefix string) SpecGroup {
+func specGroupFor(s *ast.ImportSpec, localPrefix string) SpecGroup {
 	path := pathValue(s)
 
 	if localPrefix != "" {
@@ -63,7 +63,7 @@ func specGroup(s *ast.ImportSpec, localPrefix string) SpecGroup {
 	return StdLib
 }
 
-type bySpecGroup []*ImportSpec
+type bySpecGroup []*importSpec
 
 func (x bySpecGroup) Len() int      { return len(x) }
 func (x bySpecGroup) Swap(i, j int) { x[i], x[j] = x[j], x[i] }
@@ -71,8 +71,8 @@ func (x bySpecGroup) Less(i, j int) bool {
 	ipath := x[i].path()
 	jpath := x[j].path()
 
-	igroup := x[i].Group
-	jgroup := x[j].Group
+	igroup := x[i].group
+	jgroup := x[j].group
 	if igroup != jgroup {
 		return igroup < jgroup
 	}
@@ -91,45 +91,45 @@ func (x bySpecGroup) Less(i, j int) bool {
 
 // ImportDecl represents *ast.GenDecl (import declaration) with the relavent comments
 type ImportDecl struct {
-	Node  *ast.GenDecl
-	Specs []*ImportSpec
+	node  *ast.GenDecl
+	specs []*importSpec
 
-	Header     []*ast.CommentGroup
-	Doc        []*ast.CommentGroup
-	PreLparen  []*ast.CommentGroup
-	PostLparen []*ast.CommentGroup
-	Bottom     []*ast.CommentGroup
-	PostRparen []*ast.CommentGroup
-	StdLibDoc  []*ast.CommentGroup
-	ForeignDoc []*ast.CommentGroup
-	LocalDoc   []*ast.CommentGroup
-	Footer     []*ast.CommentGroup
+	header     []*ast.CommentGroup
+	doc        []*ast.CommentGroup
+	preLparen  []*ast.CommentGroup
+	postLparen []*ast.CommentGroup
+	bottom     []*ast.CommentGroup
+	postRparen []*ast.CommentGroup
+	stdLibDoc  []*ast.CommentGroup
+	foreignDoc []*ast.CommentGroup
+	localDoc   []*ast.CommentGroup
+	footer     []*ast.CommentGroup
 
 	pos token.Pos
 	end token.Pos
 }
 
 func newImportDecl(d *ast.GenDecl, localPrefix string) *ImportDecl {
-	return &ImportDecl{Node: d, pos: d.Pos(), end: d.End()}
+	return &ImportDecl{node: d, pos: d.Pos(), end: d.End()}
 }
 
-func newSingleImportDecl(spec *ImportSpec) *ImportDecl {
-	gen := &ast.GenDecl{Tok: token.IMPORT, TokPos: spec.Node.Pos()}
-	decl := ImportDecl{Node: gen, pos: spec.pos, end: spec.end}
+func newSingleImportDecl(spec *importSpec) *ImportDecl {
+	gen := &ast.GenDecl{Tok: token.IMPORT, TokPos: spec.node.Pos()}
+	decl := ImportDecl{node: gen, pos: spec.pos, end: spec.end}
 
-	decl.Doc = spec.Doc
-	spec.Doc = nil
-	decl.Footer = spec.Footer
-	spec.Footer = nil
+	decl.doc = spec.doc
+	spec.doc = nil
+	decl.footer = spec.footer
+	spec.footer = nil
 
 	return &decl
 }
 
 func (decl *ImportDecl) isCImportDecl() bool {
-	if len(decl.Specs) != 1 {
+	if len(decl.specs) != 1 {
 		return false
 	}
-	return decl.Specs[0].isCSpec()
+	return decl.specs[0].isCSpec()
 }
 
 func (decl *ImportDecl) distillCImports() (*ImportDecl, *ImportDecl) {
@@ -137,10 +137,10 @@ func (decl *ImportDecl) distillCImports() (*ImportDecl, *ImportDecl) {
 		return decl, nil
 	}
 
-	var cspec *ImportSpec
-	specs := make([]*ImportSpec, 0, len(decl.Specs))
+	var cspec *importSpec
+	specs := make([]*importSpec, 0, len(decl.specs))
 
-	for _, spec := range decl.Specs {
+	for _, spec := range decl.specs {
 		if !spec.isCSpec() {
 			specs = append(specs, spec)
 			continue
@@ -155,12 +155,12 @@ func (decl *ImportDecl) distillCImports() (*ImportDecl, *ImportDecl) {
 	if cspec == nil {
 		return nil, decl
 	}
-	decl.Specs = specs
+	decl.specs = specs
 	return newSingleImportDecl(cspec), decl
 }
 
-func (decl *ImportDecl) addSpec(ss ...*ImportSpec) {
-	decl.Specs = append(decl.Specs, ss...)
+func (decl *ImportDecl) addSpec(ss ...*importSpec) {
+	decl.specs = append(decl.specs, ss...)
 	for _, s := range ss {
 		if s.pos < decl.pos {
 			decl.pos = s.pos
@@ -169,81 +169,81 @@ func (decl *ImportDecl) addSpec(ss ...*ImportSpec) {
 			decl.end = s.end
 		}
 	}
-	sort.Sort(bySpecGroup(decl.Specs))
+	sort.Sort(bySpecGroup(decl.specs))
 }
 
 func (decl *ImportDecl) addHeader(cg ...*ast.CommentGroup) {
-	decl.Header = append(decl.Header, cg...)
+	decl.header = append(decl.header, cg...)
 	for _, c := range cg {
 		p := c.Pos()
 		if p.IsValid() && p < decl.pos {
 			decl.pos = p
 		}
 	}
-	sort.Sort(byCommentPos(decl.Header))
+	sort.Sort(byCommentPos(decl.header))
 }
 
 func (decl *ImportDecl) addDoc(cg ...*ast.CommentGroup) {
-	decl.Doc = append(decl.Doc, cg...)
+	decl.doc = append(decl.doc, cg...)
 	for _, c := range cg {
 		p := c.Pos()
 		if p.IsValid() && p < decl.pos {
 			decl.pos = p
 		}
 	}
-	sort.Sort(byCommentPos(decl.Doc))
+	sort.Sort(byCommentPos(decl.doc))
 }
 
 func (decl *ImportDecl) addPreLparen(cg ...*ast.CommentGroup) {
-	decl.PreLparen = append(decl.PreLparen, cg...)
-	sort.Sort(byCommentPos(decl.PreLparen))
+	decl.preLparen = append(decl.preLparen, cg...)
+	sort.Sort(byCommentPos(decl.preLparen))
 }
 
 func (decl *ImportDecl) addPostLparen(cg ...*ast.CommentGroup) {
-	decl.PostLparen = append(decl.PostLparen, cg...)
-	sort.Sort(byCommentPos(decl.PostLparen))
+	decl.postLparen = append(decl.postLparen, cg...)
+	sort.Sort(byCommentPos(decl.postLparen))
 }
 
 func (decl *ImportDecl) addStdLibDoc(cg ...*ast.CommentGroup) {
-	decl.StdLibDoc = append(decl.StdLibDoc, cg...)
-	sort.Sort(byCommentPos(decl.StdLibDoc))
+	decl.stdLibDoc = append(decl.stdLibDoc, cg...)
+	sort.Sort(byCommentPos(decl.stdLibDoc))
 }
 
 func (decl *ImportDecl) addForeignDoc(cg ...*ast.CommentGroup) {
-	decl.ForeignDoc = append(decl.ForeignDoc, cg...)
-	sort.Sort(byCommentPos(decl.ForeignDoc))
+	decl.foreignDoc = append(decl.foreignDoc, cg...)
+	sort.Sort(byCommentPos(decl.foreignDoc))
 }
 
 func (decl *ImportDecl) addLocalDoc(cg ...*ast.CommentGroup) {
-	decl.LocalDoc = append(decl.LocalDoc, cg...)
-	sort.Sort(byCommentPos(decl.LocalDoc))
+	decl.localDoc = append(decl.localDoc, cg...)
+	sort.Sort(byCommentPos(decl.localDoc))
 }
 
 func (decl *ImportDecl) addBottom(cg ...*ast.CommentGroup) {
-	decl.Bottom = append(decl.Bottom, cg...)
-	sort.Sort(byCommentPos(decl.Bottom))
+	decl.bottom = append(decl.bottom, cg...)
+	sort.Sort(byCommentPos(decl.bottom))
 }
 
 func (decl *ImportDecl) addPostRparen(cg ...*ast.CommentGroup) {
-	decl.PostRparen = append(decl.PostRparen, cg...)
+	decl.postRparen = append(decl.postRparen, cg...)
 	for _, c := range cg {
 		p := c.End()
 		if p.IsValid() && p > decl.end {
 			decl.end = p
 		}
 	}
-	sort.Sort(byCommentPos(decl.PostRparen))
+	sort.Sort(byCommentPos(decl.postRparen))
 }
 
 func (decl *ImportDecl) addFooter(cg ...*ast.CommentGroup) {
-	decl.Footer = append(decl.Footer, cg...)
+	decl.footer = append(decl.footer, cg...)
 	for _, c := range cg {
 		p := c.End()
 		if p.IsValid() && p > decl.end {
 			decl.end = p
 		}
 	}
-	sort.Sort(byCommentPos(decl.Footer))
+	sort.Sort(byCommentPos(decl.footer))
 }
 
 func (decl *ImportDecl) addGroupDoc(c *ast.CommentGroup, g SpecGroup) {
@@ -262,182 +262,182 @@ func (x *ImportDecl) merge(y *ImportDecl) {
 	x.normalize()
 	y.normalize()
 
-	x.addSpec(y.Specs...)
-	x.addHeader(y.Header...)
-	x.addDoc(y.Doc...)
-	x.addPreLparen(y.PreLparen...)
-	x.addPostLparen(y.PostLparen...)
-	x.addStdLibDoc(y.StdLibDoc...)
-	x.addForeignDoc(y.ForeignDoc...)
-	x.addLocalDoc(y.LocalDoc...)
-	x.addBottom(y.Bottom...)
-	x.addPostRparen(y.PostRparen...)
-	x.addFooter(y.Footer...)
+	x.addSpec(y.specs...)
+	x.addHeader(y.header...)
+	x.addDoc(y.doc...)
+	x.addPreLparen(y.preLparen...)
+	x.addPostLparen(y.postLparen...)
+	x.addStdLibDoc(y.stdLibDoc...)
+	x.addForeignDoc(y.foreignDoc...)
+	x.addLocalDoc(y.localDoc...)
+	x.addBottom(y.bottom...)
+	x.addPostRparen(y.postRparen...)
+	x.addFooter(y.footer...)
 }
 
 func (decl *ImportDecl) normalize() {
-	if decl.Node.Lparen.IsValid() {
+	if decl.node.Lparen.IsValid() {
 		return
 	}
 	// Set temporary positions.
 	// These values will be fixed when printing decl.
-	decl.Node.Lparen = decl.Node.TokPos + 6
-	decl.Node.Rparen = decl.Node.End()
+	decl.node.Lparen = decl.node.TokPos + 6
+	decl.node.Rparen = decl.node.End()
 
-	if len(decl.Specs) > 0 { // len equals 1
-		spec := decl.Specs[0]
-		spec.Doc = append(spec.Doc, decl.Doc...)
-		decl.Doc = nil
-		spec.Footer = append(spec.Footer, decl.Footer...)
-		decl.Footer = nil
+	if len(decl.specs) > 0 { // len equals 1
+		spec := decl.specs[0]
+		spec.doc = append(spec.doc, decl.doc...)
+		decl.doc = nil
+		spec.footer = append(spec.footer, decl.footer...)
+		decl.footer = nil
 	}
 }
 
 func (decl *ImportDecl) dedupe() {
-	if len(decl.Specs) < 2 {
+	if len(decl.specs) < 2 {
 		return
 	}
 	i := 0
-	for i < len(decl.Specs)-1 {
-		spec := decl.Specs[i]
-		next := decl.Specs[i+1]
+	for i < len(decl.specs)-1 {
+		spec := decl.specs[i]
+		next := decl.specs[i+1]
 		if spec.path() != next.path() || spec.name() != next.name() {
 			i++
 			continue
 		}
 		spec.merge(next)
-		decl.Specs = append(decl.Specs[:i], decl.Specs[i+1:]...)
+		decl.specs = append(decl.specs[:i], decl.specs[i+1:]...)
 	}
 }
 
-// ImportSpec represents *ast.ImportSpec with the relavent comments
-type ImportSpec struct {
-	Node        *ast.ImportSpec
-	Group       SpecGroup
-	Doc         []*ast.CommentGroup
-	NameComment []*ast.CommentGroup
-	PathComment []*ast.CommentGroup
-	Comment     []*ast.CommentGroup
-	Footer      []*ast.CommentGroup
+// importSpec represents *ast.importSpec with the relavent comments
+type importSpec struct {
+	node        *ast.ImportSpec
+	group       SpecGroup
+	doc         []*ast.CommentGroup
+	nameComment []*ast.CommentGroup
+	pathComment []*ast.CommentGroup
+	comment     []*ast.CommentGroup
+	footer      []*ast.CommentGroup
 
 	pos token.Pos
 	end token.Pos
 }
 
-func newImportSpec(astSpec ast.Spec, localPrefix string) *ImportSpec {
+func newImportSpec(astSpec ast.Spec, localPrefix string) *importSpec {
 	s, ok := astSpec.(*ast.ImportSpec)
 	if !ok {
 		return nil
 	}
-	return &ImportSpec{Node: s, Group: specGroup(s, localPrefix), pos: s.Pos(), end: s.End()}
+	return &importSpec{node: s, group: specGroupFor(s, localPrefix), pos: s.Pos(), end: s.End()}
 }
 
-func (spec *ImportSpec) namePos() token.Pos {
-	if spec.Node.Name != nil {
-		return spec.Node.Name.NamePos
+func (spec *importSpec) namePos() token.Pos {
+	if spec.node.Name != nil {
+		return spec.node.Name.NamePos
 	}
 	return token.NoPos
 }
 
-func (spec *ImportSpec) name() string {
-	if spec.Node.Name != nil {
-		return spec.Node.Name.Name
+func (spec *importSpec) name() string {
+	if spec.node.Name != nil {
+		return spec.node.Name.Name
 	}
 	return ""
 }
 
-func (spec *ImportSpec) pathPos() token.Pos {
-	if spec.Node.Path != nil {
-		return spec.Node.Path.ValuePos
+func (spec *importSpec) pathPos() token.Pos {
+	if spec.node.Path != nil {
+		return spec.node.Path.ValuePos
 	}
 	return token.NoPos
 }
 
-func (spec *ImportSpec) pathEnd() token.Pos {
-	if spec.Node.Path != nil {
-		return spec.Node.Path.End()
+func (spec *importSpec) pathEnd() token.Pos {
+	if spec.node.Path != nil {
+		return spec.node.Path.End()
 	}
 	return token.NoPos
 }
 
-func (spec *ImportSpec) path() string {
-	return pathValue(spec.Node)
+func (spec *importSpec) path() string {
+	return pathValue(spec.node)
 }
 
-func (spec *ImportSpec) firstComment() string {
-	if len(spec.Comment) == 0 {
+func (spec *importSpec) firstComment() string {
+	if len(spec.comment) == 0 {
 		return ""
 	}
-	return spec.Comment[0].Text()
+	return spec.comment[0].Text()
 }
 
-func (spec *ImportSpec) isCSpec() bool {
-	return spec.Node.Path.Value == `"C"`
+func (spec *importSpec) isCSpec() bool {
+	return spec.node.Path.Value == `"C"`
 }
 
-func (spec *ImportSpec) addDoc(cg ...*ast.CommentGroup) {
-	spec.Doc = append(spec.Doc, cg...)
+func (spec *importSpec) addDoc(cg ...*ast.CommentGroup) {
+	spec.doc = append(spec.doc, cg...)
 	for _, c := range cg {
 		p := c.Pos()
 		if p.IsValid() && p < spec.pos {
 			spec.pos = p
 		}
 	}
-	sort.Sort(byCommentPos(spec.Doc))
+	sort.Sort(byCommentPos(spec.doc))
 }
 
-func (spec *ImportSpec) addNameComment(cg ...*ast.CommentGroup) {
-	spec.NameComment = append(spec.NameComment, cg...)
+func (spec *importSpec) addNameComment(cg ...*ast.CommentGroup) {
+	spec.nameComment = append(spec.nameComment, cg...)
 	for _, c := range cg {
 		p := c.Pos()
 		if p.IsValid() && p < spec.pos {
 			spec.pos = p
 		}
 	}
-	sort.Sort(byCommentPos(spec.NameComment))
+	sort.Sort(byCommentPos(spec.nameComment))
 }
 
-func (spec *ImportSpec) addPathComment(cg ...*ast.CommentGroup) {
-	spec.PathComment = append(spec.PathComment, cg...)
+func (spec *importSpec) addPathComment(cg ...*ast.CommentGroup) {
+	spec.pathComment = append(spec.pathComment, cg...)
 	for _, c := range cg {
 		p := c.Pos()
 		if p.IsValid() && p < spec.pos {
 			spec.pos = p
 		}
 	}
-	sort.Sort(byCommentPos(spec.PathComment))
+	sort.Sort(byCommentPos(spec.pathComment))
 }
 
-func (spec *ImportSpec) addComment(cg ...*ast.CommentGroup) {
-	spec.Comment = append(spec.Comment, cg...)
+func (spec *importSpec) addComment(cg ...*ast.CommentGroup) {
+	spec.comment = append(spec.comment, cg...)
 	for _, c := range cg {
 		p := c.End()
 		if p.IsValid() && p > spec.end {
 			spec.end = p
 		}
 	}
-	sort.Sort(byCommentPos(spec.Comment))
+	sort.Sort(byCommentPos(spec.comment))
 }
 
-func (spec *ImportSpec) addFooter(cg ...*ast.CommentGroup) {
-	spec.Footer = append(spec.Footer, cg...)
+func (spec *importSpec) addFooter(cg ...*ast.CommentGroup) {
+	spec.footer = append(spec.footer, cg...)
 	for _, c := range cg {
 		p := c.End()
 		if p.IsValid() && p > spec.end {
 			spec.end = p
 		}
 	}
-	sort.Sort(byCommentPos(spec.Footer))
+	sort.Sort(byCommentPos(spec.footer))
 }
 
 // merge merges 2 ImportSpecs.
 // Make sure x and y have the same names and paths before calling it.
-func (x *ImportSpec) merge(y *ImportSpec) {
-	x.addDoc(y.Doc...)
-	x.addNameComment(y.NameComment...)
-	x.addPathComment(y.PathComment...)
-	x.addComment(y.Comment...)
-	x.addFooter(y.Footer...)
+func (x *importSpec) merge(y *importSpec) {
+	x.addDoc(y.doc...)
+	x.addNameComment(y.nameComment...)
+	x.addPathComment(y.pathComment...)
+	x.addComment(y.comment...)
+	x.addFooter(y.footer...)
 }
 
 type importDeclReader struct {
@@ -488,18 +488,18 @@ func (idr *importDeclReader) readNext() (*ImportDecl, bool) {
 	tokenFile := idr.tokenFile
 	comments := idr.comments
 
-	for comments[idr.commentIndex].End() <= decl.Node.Pos() {
+	for comments[idr.commentIndex].End() <= decl.node.Pos() {
 		decl.addDoc(comments[idr.commentIndex])
 		idr.commentIndex++
 	}
 
-	if decl.Node.Lparen.IsValid() {
-		for comments[idr.commentIndex].Pos() <= decl.Node.Lparen {
+	if decl.node.Lparen.IsValid() {
+		for comments[idr.commentIndex].Pos() <= decl.node.Lparen {
 			decl.addPreLparen(comments[idr.commentIndex])
 			idr.commentIndex++
 		}
 
-		lparenLine := tokenFile.Line(decl.Node.Lparen)
+		lparenLine := tokenFile.Line(decl.node.Lparen)
 		firstSpecLine := tokenFile.LineCount()
 		if len(d.Specs) > 0 {
 			firstSpecLine = tokenFile.Line(d.Specs[0].Pos())
@@ -519,15 +519,15 @@ func (idr *importDeclReader) readNext() (*ImportDecl, bool) {
 			panic("Failed to read ImportSpec")
 		}
 
-		if decl.Node.Lparen.IsValid() {
-			sg := spec.Group
+		if decl.node.Lparen.IsValid() {
+			sg := spec.group
 
-			for tokenFile.Line(comments[idr.commentIndex].End()) < tokenFile.Line(spec.Node.Pos())-1 {
+			for tokenFile.Line(comments[idr.commentIndex].End()) < tokenFile.Line(spec.node.Pos())-1 {
 				decl.addGroupDoc(comments[idr.commentIndex], sg)
 				idr.commentIndex++
 			}
 
-			for tokenFile.Line(comments[idr.commentIndex].End()) < tokenFile.Line(spec.Node.Pos()) {
+			for tokenFile.Line(comments[idr.commentIndex].End()) < tokenFile.Line(spec.node.Pos()) {
 				spec.addDoc(comments[idr.commentIndex])
 				idr.commentIndex++
 			}
@@ -550,13 +550,13 @@ func (idr *importDeclReader) readNext() (*ImportDecl, bool) {
 			idr.commentIndex++
 		}
 
-		if decl.Node.Rparen.IsValid() {
+		if decl.node.Rparen.IsValid() {
 			// NOTE: if decl has its rparen, comment groups should be divided before the rparen.
 			nextPos := tokenFile.Pos(tokenFile.Size())
 			if j < len(d.Specs)-1 {
 				nextPos = d.Specs[j+1].Pos()
 			}
-			spec.addFooter(idr.readFooterComments(spec.end, decl.Node.Rparen, tokenFile.Line(nextPos))...)
+			spec.addFooter(idr.readFooterComments(spec.end, decl.node.Rparen, tokenFile.Line(nextPos))...)
 		}
 
 		decl.addSpec(spec)
@@ -567,14 +567,14 @@ func (idr *importDeclReader) readNext() (*ImportDecl, bool) {
 		nextPos = idr.decls[idr.declIndex+1].Pos()
 	}
 
-	if decl.Node.Rparen.IsValid() {
-		for comments[idr.commentIndex].End() <= decl.Node.Rparen {
+	if decl.node.Rparen.IsValid() {
+		for comments[idr.commentIndex].End() <= decl.node.Rparen {
 			decl.addBottom(comments[idr.commentIndex])
 			idr.commentIndex++
 		}
 
 		c := comments[idr.commentIndex]
-		for c.End() <= nextPos && tokenFile.Line(c.Pos()) == tokenFile.Line(decl.Node.Rparen) && !idr.containsSemicolon(decl.Node.Rparen, c.Pos()) {
+		for c.End() <= nextPos && tokenFile.Line(c.Pos()) == tokenFile.Line(decl.node.Rparen) && !idr.containsSemicolon(decl.node.Rparen, c.Pos()) {
 			decl.addPostRparen(c)
 			idr.commentIndex++
 			c = comments[idr.commentIndex]
@@ -638,79 +638,79 @@ func newSourceWriter(tokenFile *token.File) *sourceWriter {
 }
 
 func (sw *sourceWriter) writeImportDecl(decl *ImportDecl) {
-	sw.writeFloatingComments(decl.Header)
-	sw.writeComments(decl.Doc)
-	decl.Node.TokPos = sw.pos
+	sw.writeFloatingComments(decl.header)
+	sw.writeComments(decl.doc)
+	decl.node.TokPos = sw.pos
 	sw.writeString(token.IMPORT.String())
-	sw.writeInlineComments(decl.PreLparen)
-	decl.Node.Lparen = sw.pos
+	sw.writeInlineComments(decl.preLparen)
+	decl.node.Lparen = sw.pos
 	sw.writeString(token.LPAREN.String())
-	sw.writeInlineComments(decl.PostLparen)
+	sw.writeInlineComments(decl.postLparen)
 	sw.writeNewline()
 
 	sg := NoGroup
-	for _, spec := range decl.Specs {
-		if spec.Group != sg {
-			sg = spec.Group
+	for _, spec := range decl.specs {
+		if spec.group != sg {
+			sg = spec.group
 
 			switch sg {
 			case StdLib:
-				if decl.StdLibDoc != nil {
-					sw.writeFloatingComments(decl.StdLibDoc)
+				if decl.stdLibDoc != nil {
+					sw.writeFloatingComments(decl.stdLibDoc)
 				}
 			case Foreign:
 				sw.writeNewline()
-				if decl.ForeignDoc != nil {
-					sw.writeFloatingComments(decl.ForeignDoc)
+				if decl.foreignDoc != nil {
+					sw.writeFloatingComments(decl.foreignDoc)
 				}
 			case Local:
 				sw.writeNewline()
-				if decl.LocalDoc != nil {
-					sw.writeFloatingComments(decl.LocalDoc)
+				if decl.localDoc != nil {
+					sw.writeFloatingComments(decl.localDoc)
 				}
 			}
 		}
 		sw.writeImportSpec(spec)
 	}
 
-	if len(decl.Bottom) > 0 {
+	if len(decl.bottom) > 0 {
 		sw.writeNewline()
-		sw.writeComments(decl.Bottom)
+		sw.writeComments(decl.bottom)
 	}
 
-	decl.Node.Rparen = sw.pos
+	decl.node.Rparen = sw.pos
 	sw.writeString(token.RPAREN.String())
-	sw.writeInlineComments(decl.PostRparen)
+	sw.writeInlineComments(decl.postRparen)
 	sw.writeNewline()
 }
 
 func (sw *sourceWriter) writeSingleImportDecl(decl *ImportDecl) {
-	sw.writeComments(decl.Doc)
-	decl.Node.TokPos = sw.pos
+	sw.writeComments(decl.doc)
+	decl.node.TokPos = sw.pos
 	sw.writeString(token.IMPORT.String())
 	sw.writeSpace()
-	sw.writeImportSpec(decl.Specs[0])
-	sw.writeComments(decl.Bottom)
+	sw.writeImportSpec(decl.specs[0])
+	sw.writeComments(decl.bottom)
 }
 
-func (sw *sourceWriter) writeImportSpec(spec *ImportSpec) {
-	if len(spec.Doc) > 0 {
-		sw.writeComments(spec.Doc)
+func (sw *sourceWriter) writeImportSpec(spec *importSpec) {
+	if len(spec.doc) > 0 {
+		sw.writeComments(spec.doc)
 	}
-	if spec.Node.Name != nil {
-		sw.writeInlineComments(spec.NameComment)
-		spec.Node.Name.NamePos = sw.pos
-		sw.writeString(spec.Node.Name.Name)
+	if spec.node.Name != nil {
+		sw.writeInlineComments(spec.nameComment)
+		spec.node.Name.NamePos = sw.pos
+		sw.writeString(spec.node.Name.Name)
 	}
-	if spec.Node.Path != nil {
-		sw.writeInlineComments(spec.PathComment)
-		spec.Node.Path.ValuePos = sw.pos
-		sw.writeString(spec.Node.Path.Value)
+	if spec.node.Path != nil {
+		sw.writeInlineComments(spec.pathComment)
+		spec.node.Path.ValuePos = sw.pos
+		sw.writeString(spec.node.Path.Value)
 	}
-	sw.writeInlineComments(spec.Comment)
+	sw.writeInlineComments(spec.comment)
 	sw.writeNewline()
-	if len(spec.Footer) > 0 {
-		sw.writeComments(spec.Footer)
+	if len(spec.footer) > 0 {
+		sw.writeComments(spec.footer)
 		sw.writeNewline()
 	}
 }

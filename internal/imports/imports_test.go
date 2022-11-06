@@ -105,10 +105,65 @@ type specValue struct {
 	footer      [][]string
 }
 
+
+func runImportDeclTest(t *testing.T, expected declValue, actual *ImportDecl) {
+	t.Run("ImportDecl", func(t *testing.T) {
+		t.Run("Specs", func(t *testing.T) {
+			assert.Len(t, actual.specs, len(expected.specs))
+			for i, spec := range actual.specs {
+				runImportSpecTest(t, expected.specs[i], spec)
+			}
+		})
+		t.Run("Header", func(t *testing.T) { assertCommentGroups(t, expected.header, actual.header) })
+		t.Run("Doc", func(t *testing.T) { assertCommentGroups(t, expected.doc, actual.doc) })
+		t.Run("PreLparen", func(t *testing.T) { assertCommentGroups(t, expected.preLparen, actual.preLparen) })
+		t.Run("PostLparen", func(t *testing.T) { assertCommentGroups(t, expected.postLparen, actual.postLparen) })
+		t.Run("Bottom", func(t *testing.T) { assertCommentGroups(t, expected.bottom, actual.bottom) })
+		t.Run("PostRparen", func(t *testing.T) { assertCommentGroups(t, expected.postRparen, actual.postRparen) })
+		t.Run("StdLibDoc", func(t *testing.T) { assertCommentGroups(t, expected.stdLibDoc, actual.stdLibDoc) })
+		t.Run("ForeignDoc", func(t *testing.T) { assertCommentGroups(t, expected.foreignDoc, actual.foreignDoc) })
+		t.Run("LocalDoc", func(t *testing.T) { assertCommentGroups(t, expected.localDoc, actual.localDoc) })
+		t.Run("Footer", func(t *testing.T) { assertCommentGroups(t, expected.footer, actual.footer) })
+	})
+}
+
+func runImportSpecTest(t *testing.T, expected specValue, actual *importSpec) {
+	t.Run("ImportSpec", func(t *testing.T) {
+		t.Run("Name", func(t *testing.T) { assert.Equal(t, expected.name, actual.name()) })
+		t.Run("Path", func(t *testing.T) { assert.Equal(t, expected.path, actual.path()) })
+		t.Run("SpecGroup", func(t *testing.T) { assert.Equal(t, expected.group, actual.group) })
+		t.Run("Doc", func(t *testing.T) { assertCommentGroups(t, expected.doc, actual.doc) })
+		t.Run("NameComment", func(t *testing.T) { assertCommentGroups(t, expected.nameComment, actual.nameComment) })
+		t.Run("PathComment", func(t *testing.T) { assertCommentGroups(t, expected.pathComment, actual.pathComment) })
+		t.Run("Comment", func(t *testing.T) { assertCommentGroups(t, expected.comment, actual.comment) })
+		t.Run("Footer", func(t *testing.T) { assertCommentGroups(t, expected.footer, actual.footer) })
+	})
+}
+
+func assertCommentGroups(t *testing.T, expected [][]string, actual []*ast.CommentGroup) {
+	assert.Equal(t, expected, extractComments(actual))
+}
+
+func extractComments(cgs []*ast.CommentGroup) [][]string {
+	if len(cgs) == 0 {
+		return nil
+	}
+
+	result := make([][]string, 0, len(cgs))
+	for _, cg := range cgs {
+		comments := make([]string, 0, len(cg.List))
+		for _, c := range cg.List {
+			comments = append(comments, c.Text)
+		}
+		result = append(result, comments)
+	}
+	return result
+}
+
 func TestNewSourceFile(t *testing.T) {
 	type testcase struct {
 		src string
-		f   func(t *testing.T, name string, sf *SourceFile)
+		f   func(t *testing.T, name string, sf *sourceFile)
 	}
 
 	cases := []testcase{
@@ -148,11 +203,11 @@ for errors (1)*//*comment for errors (2)*/// comment for errors (3)
 import "local/bar"
 
 // unrelated comments`,
-			f: func(t *testing.T, name string, sf *SourceFile) {
+			f: func(t *testing.T, name string, sf *sourceFile) {
 				decls := sf.importDecls
 				assert.Len(t, decls, 7)
 
-				assert.Len(t, decls[0].Specs, 1)
+				assert.Len(t, decls[0].specs, 1)
 				runImportDeclTest(t, declValue{
 					specs: []specValue{
 						{
@@ -165,7 +220,7 @@ import "local/bar"
 					footer: [][]string{{"/*footer comment for fmt (1)*/", "/*\nfooter comment for fmt (2)*/"}},
 				}, decls[0])
 
-				assert.Len(t, decls[1].Specs, 1)
+				assert.Len(t, decls[1].specs, 1)
 				runImportDeclTest(t, declValue{
 					specs: []specValue{
 						{
@@ -177,7 +232,7 @@ import "local/bar"
 					doc: [][]string{{"/*doc comment for context (1)*/", "// doc comment for context (2) "}},
 				}, decls[1])
 
-				assert.Len(t, decls[2].Specs, 1)
+				assert.Len(t, decls[2].specs, 1)
 				runImportDeclTest(t, declValue{
 					specs: []specValue{
 						{
@@ -194,7 +249,7 @@ import "local/bar"
 					footer: [][]string{{"// footer comment for errors"}},
 				}, decls[2])
 
-				assert.Len(t, decls[3].Specs, 1)
+				assert.Len(t, decls[3].specs, 1)
 				runImportDeclTest(t, declValue{
 					specs: []specValue{
 						{
@@ -208,7 +263,7 @@ import "local/bar"
 					doc:    [][]string{{"/*assumed doc comment for foo*/"}},
 				}, decls[3])
 
-				assert.Len(t, decls[4].Specs, 1)
+				assert.Len(t, decls[4].specs, 1)
 				runImportDeclTest(t, declValue{
 					specs: []specValue{
 						{
@@ -223,7 +278,7 @@ import "local/bar"
 					doc: [][]string{{"/*assumed doc comment for x*/"}},
 				}, decls[4])
 
-				assert.Len(t, decls[5].Specs, 1)
+				assert.Len(t, decls[5].specs, 1)
 				runImportDeclTest(t, declValue{
 					specs: []specValue{
 						{
@@ -238,7 +293,7 @@ import "local/bar"
 					doc: [][]string{{"/*assumed doc comment for y*/"}},
 				}, decls[5])
 
-				assert.Len(t, decls[6].Specs, 1)
+				assert.Len(t, decls[6].specs, 1)
 				runImportDeclTest(t, declValue{
 					specs: []specValue{
 						{
@@ -301,7 +356,7 @@ import
 // footer comment
 
 // unrelated comments`,
-			f: func(t *testing.T, name string, sf *SourceFile) {
+			f: func(t *testing.T, name string, sf *sourceFile) {
 				decls := sf.importDecls
 				assert.Len(t, decls, 3)
 
@@ -393,62 +448,8 @@ import
 				t.Error(fmt.Errorf("Failed to parse %s.go: %w", name, err))
 				return
 			}
-			sf := NewSourceFile(src, fileSet, file, options)
+			sf := newSourceFile(src, fileSet, file, options)
 			c.f(t, name, sf)
 		})
 	}
-}
-
-func runImportDeclTest(t *testing.T, expected declValue, actual *ImportDecl) {
-	t.Run("ImportDecl", func(t *testing.T) {
-		t.Run("Specs", func(t *testing.T) {
-			assert.Len(t, actual.Specs, len(expected.specs))
-			for i, spec := range actual.Specs {
-				runImportSpecTest(t, expected.specs[i], spec)
-			}
-		})
-		t.Run("Header", func(t *testing.T) { assertCommentGroups(t, expected.header, actual.Header) })
-		t.Run("Doc", func(t *testing.T) { assertCommentGroups(t, expected.doc, actual.Doc) })
-		t.Run("PreLparen", func(t *testing.T) { assertCommentGroups(t, expected.preLparen, actual.PreLparen) })
-		t.Run("PostLparen", func(t *testing.T) { assertCommentGroups(t, expected.postLparen, actual.PostLparen) })
-		t.Run("Bottom", func(t *testing.T) { assertCommentGroups(t, expected.bottom, actual.Bottom) })
-		t.Run("PostRparen", func(t *testing.T) { assertCommentGroups(t, expected.postRparen, actual.PostRparen) })
-		t.Run("StdLibDoc", func(t *testing.T) { assertCommentGroups(t, expected.stdLibDoc, actual.StdLibDoc) })
-		t.Run("ForeignDoc", func(t *testing.T) { assertCommentGroups(t, expected.foreignDoc, actual.ForeignDoc) })
-		t.Run("LocalDoc", func(t *testing.T) { assertCommentGroups(t, expected.localDoc, actual.LocalDoc) })
-		t.Run("Footer", func(t *testing.T) { assertCommentGroups(t, expected.footer, actual.Footer) })
-	})
-}
-
-func runImportSpecTest(t *testing.T, expected specValue, actual *ImportSpec) {
-	t.Run("ImportSpec", func(t *testing.T) {
-		t.Run("Name", func(t *testing.T) { assert.Equal(t, expected.name, actual.name()) })
-		t.Run("Path", func(t *testing.T) { assert.Equal(t, expected.path, actual.path()) })
-		t.Run("SpecGroup", func(t *testing.T) { assert.Equal(t, expected.group, actual.Group) })
-		t.Run("Doc", func(t *testing.T) { assertCommentGroups(t, expected.doc, actual.Doc) })
-		t.Run("NameComment", func(t *testing.T) { assertCommentGroups(t, expected.nameComment, actual.NameComment) })
-		t.Run("PathComment", func(t *testing.T) { assertCommentGroups(t, expected.pathComment, actual.PathComment) })
-		t.Run("Comment", func(t *testing.T) { assertCommentGroups(t, expected.comment, actual.Comment) })
-		t.Run("Footer", func(t *testing.T) { assertCommentGroups(t, expected.footer, actual.Footer) })
-	})
-}
-
-func assertCommentGroups(t *testing.T, expected [][]string, actual []*ast.CommentGroup) {
-	assert.Equal(t, expected, extractComments(actual))
-}
-
-func extractComments(cgs []*ast.CommentGroup) [][]string {
-	if len(cgs) == 0 {
-		return nil
-	}
-
-	result := make([][]string, 0, len(cgs))
-	for _, cg := range cgs {
-		comments := make([]string, 0, len(cg.List))
-		for _, c := range cg.List {
-			comments = append(comments, c.Text)
-		}
-		result = append(result, comments)
-	}
-	return result
 }

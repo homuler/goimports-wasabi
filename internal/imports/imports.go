@@ -62,7 +62,7 @@ func Process(filename string, src []byte, opt *Options) (formatted []byte, err e
 // with the original source (formatFile's src parameter) and the
 // formatted file, and returns the postpocessed result.
 func formatFile(fset *token.FileSet, file *ast.File, src []byte, adjust func(orig []byte, src []byte) []byte, opt *Options) ([]byte, error) {
-	sf := NewSourceFile(src, fset, file, opt)
+	sf := newSourceFile(src, fset, file, opt)
 	sf.squashImportDecls()
 
 	printerMode := printer.UseSpaces
@@ -240,7 +240,7 @@ func matchSpace(orig []byte, src []byte) []byte {
 	return b.Bytes()
 }
 
-type SourceFile struct {
+type sourceFile struct {
 	src         []byte
 	fileSet     *token.FileSet
 	tokenFile   *token.File
@@ -249,9 +249,9 @@ type SourceFile struct {
 	importDecls []*ImportDecl
 }
 
-func NewSourceFile(src []byte, fileSet *token.FileSet, astFile *ast.File, options *Options) *SourceFile {
+func newSourceFile(src []byte, fileSet *token.FileSet, astFile *ast.File, options *Options) *sourceFile {
 	tokenFile := fileSet.File(astFile.Pos())
-	sf := SourceFile{src: src, fileSet: fileSet, tokenFile: tokenFile, astFile: astFile, options: options}
+	sf := sourceFile{src: src, fileSet: fileSet, tokenFile: tokenFile, astFile: astFile, options: options}
 	idr := newImportDeclReader(src, tokenFile, astFile, options.LocalPrefix)
 
 	for {
@@ -266,7 +266,7 @@ func NewSourceFile(src []byte, fileSet *token.FileSet, astFile *ast.File, option
 
 // sync synchronize astFile and tokenFile with importDecls.
 // This will change astFile and tokenFile.
-func (sf *SourceFile) sync() {
+func (sf *sourceFile) sync() {
 	start := token.Pos(sf.tokenFile.Size())
 	end := token.NoPos
 
@@ -314,41 +314,41 @@ func (sf *SourceFile) sync() {
 	mergedComments := make([]*ast.CommentGroup, 0)
 
 	for _, decl := range sf.importDecls {
-		decl.Node.Doc = nil // reset Doc to sort comments
-		for _, doc := range decl.Doc {
-			if decl.Node.Doc == nil {
-				decl.Node.Doc = doc
+		decl.node.Doc = nil // reset Doc to sort comments
+		for _, doc := range decl.doc {
+			if decl.node.Doc == nil {
+				decl.node.Doc = doc
 				continue
 			}
-			decl.Node.Doc.List = append(decl.Node.Doc.List, doc.List...)
+			decl.node.Doc.List = append(decl.node.Doc.List, doc.List...)
 			mergedComments = append(mergedComments, doc)
 		}
 
-		decl.Node.Specs = nil // reset Specs to sort specs
-		for _, spec := range decl.Specs {
-			spec.Node.Doc = nil // reset Doc to sort comments
-			for _, doc := range spec.Doc {
-				if spec.Node.Doc == nil {
-					spec.Node.Doc = doc
+		decl.node.Specs = nil // reset Specs to sort specs
+		for _, spec := range decl.specs {
+			spec.node.Doc = nil // reset Doc to sort comments
+			for _, doc := range spec.doc {
+				if spec.node.Doc == nil {
+					spec.node.Doc = doc
 					continue
 				}
-				spec.Node.Doc.List = append(spec.Node.Doc.List, doc.List...)
+				spec.node.Doc.List = append(spec.node.Doc.List, doc.List...)
 				mergedComments = append(mergedComments, doc)
 			}
 
-			spec.Node.Comment = nil // reset Comment to sort comments
-			for _, doc := range spec.Comment {
-				if spec.Node.Comment == nil {
-					spec.Node.Comment = doc
+			spec.node.Comment = nil // reset Comment to sort comments
+			for _, doc := range spec.comment {
+				if spec.node.Comment == nil {
+					spec.node.Comment = doc
 					continue
 				}
-				spec.Node.Comment.List = append(spec.Node.Comment.List, doc.List...)
+				spec.node.Comment.List = append(spec.node.Comment.List, doc.List...)
 				mergedComments = append(mergedComments, doc)
 			}
 
-			decl.Node.Specs = append(decl.Node.Specs, spec.Node)
+			decl.node.Specs = append(decl.node.Specs, spec.node)
 		}
-		newDecls = append(newDecls, decl.Node)
+		newDecls = append(newDecls, decl.node)
 	}
 
 	for _, d := range sf.astFile.Decls {
@@ -371,7 +371,7 @@ func (sf *SourceFile) sync() {
 	}
 }
 
-func (sf *SourceFile) squashImportDecls() {
+func (sf *sourceFile) squashImportDecls() {
 	if len(sf.importDecls) <= 1 {
 		return
 	}
