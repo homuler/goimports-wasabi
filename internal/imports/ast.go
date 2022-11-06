@@ -117,10 +117,11 @@ func newSingleImportDecl(spec *importSpec) *ImportDecl {
 	gen := &ast.GenDecl{Tok: token.IMPORT, TokPos: spec.node.Pos()}
 	decl := ImportDecl{node: gen, pos: spec.pos, end: spec.end}
 
-	decl.doc = spec.doc
+	decl.addDoc(spec.doc...)
 	spec.doc = nil
-	decl.footer = spec.footer
+	decl.addFooter(spec.footer...)
 	spec.footer = nil
+	decl.addSpec(spec)
 
 	return &decl
 }
@@ -132,12 +133,12 @@ func (decl *ImportDecl) isCImportDecl() bool {
 	return decl.specs[0].isCSpec()
 }
 
-func (decl *ImportDecl) distillCImports() (*ImportDecl, *ImportDecl) {
+func (decl *ImportDecl) distillCImports() ([]*ImportDecl, *ImportDecl) {
 	if decl.isCImportDecl() {
-		return decl, nil
+		return []*ImportDecl{decl}, nil
 	}
 
-	var cspec *importSpec
+	var cdecls []*ImportDecl
 	specs := make([]*importSpec, 0, len(decl.specs))
 
 	for _, spec := range decl.specs {
@@ -145,18 +146,14 @@ func (decl *ImportDecl) distillCImports() (*ImportDecl, *ImportDecl) {
 			specs = append(specs, spec)
 			continue
 		}
-		if cspec == nil {
-			cspec = spec
-		} else {
-			cspec.merge(spec)
-		}
+		cdecls = append(cdecls, newSingleImportDecl(spec))
 	}
 
-	if cspec == nil {
+	if len(cdecls) == 0 {
 		return nil, decl
 	}
 	decl.specs = specs
-	return newSingleImportDecl(cspec), decl
+	return cdecls, decl
 }
 
 func (decl *ImportDecl) addSpec(ss ...*importSpec) {
@@ -286,9 +283,9 @@ func (decl *ImportDecl) normalize() {
 
 	if len(decl.specs) > 0 { // len equals 1
 		spec := decl.specs[0]
-		spec.doc = append(spec.doc, decl.doc...)
+		spec.addDoc(decl.doc...)
 		decl.doc = nil
-		spec.footer = append(spec.footer, decl.footer...)
+		spec.addFooter(decl.footer...)
 		decl.footer = nil
 	}
 }
@@ -301,11 +298,12 @@ func (decl *ImportDecl) dedupe() {
 	for i < len(decl.specs)-1 {
 		spec := decl.specs[i]
 		next := decl.specs[i+1]
-		if spec.path() != next.path() || spec.name() != next.name() {
+		if !spec.isSame(next) {
 			i++
 			continue
 		}
 		spec.merge(next)
+		decl.specs[i+1] = spec
 		decl.specs = append(decl.specs[:i], decl.specs[i+1:]...)
 	}
 }
@@ -373,6 +371,10 @@ func (spec *importSpec) firstComment() string {
 
 func (spec *importSpec) isCSpec() bool {
 	return spec.node.Path.Value == `"C"`
+}
+
+func (spec *importSpec) isSame(another *importSpec) bool {
+	return spec.path() == another.path() && spec.name() == another.name()
 }
 
 func (spec *importSpec) addDoc(cg ...*ast.CommentGroup) {
@@ -634,10 +636,21 @@ type sourceWriter struct {
 }
 
 func newSourceWriter(tokenFile *token.File) *sourceWriter {
-	return &sourceWriter{tokenFile: tokenFile, output: make([]byte, 0, 1<<14), pos: 1}
+	return &sourceWriter{tokenFile: tokenFile, output: make([]byte, 0, 1<<14), pos: tokenFile.Pos(0)}
 }
 
 func (sw *sourceWriter) writeImportDecl(decl *ImportDecl) {
+	if !decl.node.Lparen.IsValid() {
+		sw.writeFloatingComments(decl.header)
+		sw.writeComments(decl.doc)
+		decl.node.TokPos = sw.pos
+		sw.writeString(token.IMPORT.String())
+		sw.writeSpace()
+		sw.writeImportSpec(decl.specs[0])
+		sw.writeComments(decl.bottom)
+		return
+	}
+
 	sw.writeFloatingComments(decl.header)
 	sw.writeComments(decl.doc)
 	decl.node.TokPos = sw.pos
@@ -682,15 +695,6 @@ func (sw *sourceWriter) writeImportDecl(decl *ImportDecl) {
 	sw.writeString(token.RPAREN.String())
 	sw.writeInlineComments(decl.postRparen)
 	sw.writeNewline()
-}
-
-func (sw *sourceWriter) writeSingleImportDecl(decl *ImportDecl) {
-	sw.writeComments(decl.doc)
-	decl.node.TokPos = sw.pos
-	sw.writeString(token.IMPORT.String())
-	sw.writeSpace()
-	sw.writeImportSpec(decl.specs[0])
-	sw.writeComments(decl.bottom)
 }
 
 func (sw *sourceWriter) writeImportSpec(spec *importSpec) {

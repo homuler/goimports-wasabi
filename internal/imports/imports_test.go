@@ -105,13 +105,13 @@ type specValue struct {
 	footer      [][]string
 }
 
-
 func runImportDeclTest(t *testing.T, expected declValue, actual *ImportDecl) {
 	t.Run("ImportDecl", func(t *testing.T) {
 		t.Run("Specs", func(t *testing.T) {
-			assert.Len(t, actual.specs, len(expected.specs))
-			for i, spec := range actual.specs {
-				runImportSpecTest(t, expected.specs[i], spec)
+			if assert.Len(t, actual.specs, len(expected.specs)) {
+				for i, spec := range actual.specs {
+					runImportSpecTest(t, expected.specs[i], spec)
+				}
 			}
 		})
 		t.Run("Header", func(t *testing.T) { assertCommentGroups(t, expected.header, actual.header) })
@@ -207,7 +207,6 @@ import "local/bar"
 				decls := sf.importDecls
 				assert.Len(t, decls, 7)
 
-				assert.Len(t, decls[0].specs, 1)
 				runImportDeclTest(t, declValue{
 					specs: []specValue{
 						{
@@ -220,7 +219,6 @@ import "local/bar"
 					footer: [][]string{{"/*footer comment for fmt (1)*/", "/*\nfooter comment for fmt (2)*/"}},
 				}, decls[0])
 
-				assert.Len(t, decls[1].specs, 1)
 				runImportDeclTest(t, declValue{
 					specs: []specValue{
 						{
@@ -232,7 +230,6 @@ import "local/bar"
 					doc: [][]string{{"/*doc comment for context (1)*/", "// doc comment for context (2) "}},
 				}, decls[1])
 
-				assert.Len(t, decls[2].specs, 1)
 				runImportDeclTest(t, declValue{
 					specs: []specValue{
 						{
@@ -249,7 +246,6 @@ import "local/bar"
 					footer: [][]string{{"// footer comment for errors"}},
 				}, decls[2])
 
-				assert.Len(t, decls[3].specs, 1)
 				runImportDeclTest(t, declValue{
 					specs: []specValue{
 						{
@@ -263,7 +259,6 @@ import "local/bar"
 					doc:    [][]string{{"/*assumed doc comment for foo*/"}},
 				}, decls[3])
 
-				assert.Len(t, decls[4].specs, 1)
 				runImportDeclTest(t, declValue{
 					specs: []specValue{
 						{
@@ -278,7 +273,6 @@ import "local/bar"
 					doc: [][]string{{"/*assumed doc comment for x*/"}},
 				}, decls[4])
 
-				assert.Len(t, decls[5].specs, 1)
 				runImportDeclTest(t, declValue{
 					specs: []specValue{
 						{
@@ -293,7 +287,6 @@ import "local/bar"
 					doc: [][]string{{"/*assumed doc comment for y*/"}},
 				}, decls[5])
 
-				assert.Len(t, decls[6].specs, 1)
 				runImportDeclTest(t, declValue{
 					specs: []specValue{
 						{
@@ -450,6 +443,447 @@ import
 			}
 			sf := newSourceFile(src, fileSet, file, options)
 			c.f(t, name, sf)
+		})
+	}
+}
+
+func TestSquashImportDecls(t *testing.T) {
+	type testcase struct {
+		description string
+		src         string
+		f           func(t *testing.T, sf *sourceFile)
+	}
+
+	cases := []testcase{
+		{
+			description: "Return single import declaration as is",
+			src: `package main
+
+// doc comment for fmt
+import/*name comment for f*/f/*path comment for fmt*/"fmt"// line comment for fmt
+// footer comment for fmt
+
+// unrelated comments`,
+			f: func(t *testing.T, sf *sourceFile) {
+				decls := sf.importDecls
+				assert.Len(t, decls, 1)
+
+				runImportDeclTest(t, declValue{
+					specs: []specValue{
+						{
+							path:        "fmt",
+							name:        "f",
+							group:       StdLib,
+							nameComment: [][]string{{"/*name comment for f*/"}},
+							pathComment: [][]string{{"/*path comment for fmt*/"}},
+							comment:     [][]string{{"// line comment for fmt"}},
+						},
+					},
+					doc:    [][]string{{"// doc comment for fmt"}},
+					footer: [][]string{{"// footer comment for fmt"}},
+				}, decls[0])
+			},
+		},
+		{
+			description: "Merge same single import declarations",
+			src: `package main
+
+// doc comment for fmt (1)
+import/*name comment for f (1)*/f/*path comment for fmt (1)*/"fmt"// line comment for fmt (1)
+// footer comment for fmt (1)
+
+// doc comment for fmt (2)
+import/*name comment for f (2)*/f/*path comment for fmt (2)*/"fmt"// line comment for fmt (2)
+// footer comment for fmt (2)
+
+// unrelated comments`,
+			f: func(t *testing.T, sf *sourceFile) {
+				decls := sf.importDecls
+				assert.Len(t, decls, 1)
+
+				runImportDeclTest(t, declValue{
+					specs: []specValue{
+						{
+							path:        "fmt",
+							name:        "f",
+							group:       StdLib,
+							doc:         [][]string{{"// doc comment for fmt (1)", "// doc comment for fmt (2)"}},
+							nameComment: [][]string{{"/*name comment for f (1)*/"}, {"/*name comment for f (2)*/"}},
+							pathComment: [][]string{{"/*path comment for fmt (1)*/"}, {"/*path comment for fmt (2)*/"}},
+							comment:     [][]string{{"// line comment for fmt (1)", "// line comment for fmt (2)"}},
+							footer:      [][]string{{"// footer comment for fmt (1)"}, {"// footer comment for fmt (2)"}},
+						},
+					},
+				}, decls[0])
+			},
+		},
+		{
+			description: "Merge single import declarations",
+			src: `package main
+
+// doc comment for fmt
+import/*name comment for f*/f/*path comment for fmt*/"fmt"// line comment for fmt
+// footer comment for fmt
+
+// doc comment for context (1)
+import/*name comment for ctx (1)*/ctx/*path comment for context (1)*/"context"// line comment for context (1)
+// footer comment for context (1)
+
+// header comment (1)
+
+// doc comment for fmt (1)
+import/*path comment for fmt (1)*/"fmt"// line comment for fmt (1)
+// footer comment for fmt (1)
+
+// doc comment for context (2)
+import/*name comment for ctx (2)*/ctx/*path comment for context (2)*/"context"// line comment for context (2)
+// footer comment for context (2)
+
+// header comment (2)
+
+// doc comment for fmt (2)
+import/*path comment for fmt (2)*/"fmt"// line comment for fmt (2)
+// footer comment for fmt (2)
+// footer comment for fmt (3)
+
+// unrelated comments
+`,
+			f: func(t *testing.T, sf *sourceFile) {
+				decls := sf.importDecls
+				assert.Len(t, decls, 1)
+
+				runImportDeclTest(t, declValue{
+					specs: []specValue{
+						{
+							path:        "context",
+							name:        "ctx",
+							group:       StdLib,
+							doc:         [][]string{{"// doc comment for context (1)", "// doc comment for context (2)"}},
+							nameComment: [][]string{{"/*name comment for ctx (1)*/"}, {"/*name comment for ctx (2)*/"}},
+							pathComment: [][]string{{"/*path comment for context (1)*/"}, {"/*path comment for context (2)*/"}},
+							comment:     [][]string{{"// line comment for context (1)", "// line comment for context (2)"}},
+							footer:      [][]string{{"// footer comment for context (1)"}, {"// footer comment for context (2)"}},
+						},
+						{
+							path:        "fmt",
+							group:       StdLib,
+							doc:         [][]string{{"// doc comment for fmt (1)", "// doc comment for fmt (2)"}},
+							pathComment: [][]string{{"/*path comment for fmt (1)*/"}, {"/*path comment for fmt (2)*/"}},
+							comment:     [][]string{{"// line comment for fmt (1)", "// line comment for fmt (2)"}},
+							footer:      [][]string{{"// footer comment for fmt (1)"}, {"// footer comment for fmt (2)", "// footer comment for fmt (3)"}},
+						},
+						{
+							path:        "fmt",
+							name:        "f",
+							group:       StdLib,
+							doc:         [][]string{{"// doc comment for fmt"}},
+							nameComment: [][]string{{"/*name comment for f*/"}},
+							pathComment: [][]string{{"/*path comment for fmt*/"}},
+							comment:     [][]string{{"// line comment for fmt"}},
+							footer:      [][]string{{"// footer comment for fmt"}},
+						},
+					},
+					header: [][]string{{"// header comment (1)"}, {"// header comment (2)"}},
+				}, decls[0])
+			},
+		},
+		{
+			description: "Merge import declarations into a single import declaration",
+			src: `package main
+
+// doc comment for fmt
+import/*path comment for fmt (1)*/"fmt"// line comment for fmt (1)
+// footer comment for fmt (1)
+
+// header comment
+
+// doc comment
+import/*prelparen comment*/(// postlparen comment
+	// stdlib comment
+
+	"context"
+	/*path comment for fmt (2)*/"fmt"// line comment for fmt (2)
+	// footer comment for fmt (2)
+
+	// bottom comment
+)// postrparen comment
+// footer comment
+
+// unrelated comments`,
+			f: func(t *testing.T, sf *sourceFile) {
+				decls := sf.importDecls
+				assert.Len(t, decls, 1)
+
+				runImportDeclTest(t, declValue{
+					specs: []specValue{
+						{
+							path:  "context",
+							group: StdLib,
+						},
+						{
+							path:        "fmt",
+							group:       StdLib,
+							doc:         [][]string{{"// doc comment for fmt"}},
+							pathComment: [][]string{{"/*path comment for fmt (1)*/"}, {"/*path comment for fmt (2)*/"}},
+							comment:     [][]string{{"// line comment for fmt (1)", "// line comment for fmt (2)"}},
+							footer:      [][]string{{"// footer comment for fmt (1)"}, {"// footer comment for fmt (2)"}},
+						},
+					},
+					header:     [][]string{{"// header comment"}},
+					doc:        [][]string{{"// doc comment"}},
+					preLparen:  [][]string{{"/*prelparen comment*/"}},
+					postLparen: [][]string{{"// postlparen comment"}},
+					stdLibDoc:  [][]string{{"// stdlib comment"}},
+					bottom:     [][]string{{"// bottom comment"}},
+					postRparen: [][]string{{"// postrparen comment"}},
+					footer:     [][]string{{"// footer comment"}},
+				}, decls[0])
+			},
+		},
+		{
+			description: "Merge single import declarations into one import declaration",
+			src: `package main
+
+// doc comment
+import/*prelparen comment*/(// postlparen comment
+	// stdlib comment
+
+	"context"
+	/*path comment for fmt (2)*/"fmt"// line comment for fmt (2)
+	// footer comment for fmt (2)
+
+	// bottom comment
+)// postrparen comment
+// footer comment
+
+// header comment
+
+// doc comment for fmt
+import/*path comment for fmt (1)*/"fmt"// line comment for fmt (1)
+// footer comment for fmt (1)
+
+
+// unrelated comments`,
+			f: func(t *testing.T, sf *sourceFile) {
+				decls := sf.importDecls
+				assert.Len(t, decls, 1)
+
+				runImportDeclTest(t, declValue{
+					specs: []specValue{
+						{
+							path:  "context",
+							group: StdLib,
+						},
+						{
+							path:        "fmt",
+							group:       StdLib,
+							doc:         [][]string{{"// doc comment for fmt"}},
+							pathComment: [][]string{{"/*path comment for fmt (2)*/"}, {"/*path comment for fmt (1)*/"}},
+							comment:     [][]string{{"// line comment for fmt (2)", "// line comment for fmt (1)"}},
+							footer:      [][]string{{"// footer comment for fmt (2)"}, {"// footer comment for fmt (1)"}},
+						},
+					},
+					header:     [][]string{{"// header comment"}},
+					doc:        [][]string{{"// doc comment"}},
+					preLparen:  [][]string{{"/*prelparen comment*/"}},
+					postLparen: [][]string{{"// postlparen comment"}},
+					stdLibDoc:  [][]string{{"// stdlib comment"}},
+					bottom:     [][]string{{"// bottom comment"}},
+					postRparen: [][]string{{"// postrparen comment"}},
+					footer:     [][]string{{"// footer comment"}},
+				}, decls[0])
+			},
+		},
+		{
+			description: "Merge import declarations",
+			src: `package main
+
+// doc comment (1)
+import/*prelparen comment (1)*/(// postlparen comment (1)
+	// stdlib comment (1)
+
+	"context"
+	/*name comment for f (1)*/f/*path comment for fmt (1)*/"fmt"// line comment for fmt (1)
+	// footer comment for fmt (1)
+
+	// local comment
+
+	"local/buz"
+
+	// bottom comment (1)
+)// postrparen comment (1)
+// footer comment (1)
+
+// header comment
+
+// doc comment (2)
+import/*prelparen comment (2)*/(// postlparen comment (2)
+	// stdlib comment (2)
+
+	/*name comment for f (2)*/f/*path comment for fmt (2)*/"fmt"// line comment for fmt (2)
+	// footer comment for fmt (2)
+
+	// foreign comment
+
+	"github.com/homuler/foo"
+
+	// bottom comment (2)
+)// postrparen comment (2)
+// footer comment (2)
+
+// unrelated comments`,
+			f: func(t *testing.T, sf *sourceFile) {
+				decls := sf.importDecls
+				assert.Len(t, decls, 1)
+
+				runImportDeclTest(t, declValue{
+					specs: []specValue{
+						{
+							path:  "context",
+							group: StdLib,
+						},
+						{
+							path:        "fmt",
+							name:        "f",
+							group:       StdLib,
+							nameComment: [][]string{{"/*name comment for f (1)*/"}, {"/*name comment for f (2)*/"}},
+							pathComment: [][]string{{"/*path comment for fmt (1)*/"}, {"/*path comment for fmt (2)*/"}},
+							comment:     [][]string{{"// line comment for fmt (1)", "// line comment for fmt (2)"}},
+							footer:      [][]string{{"// footer comment for fmt (1)"}, {"// footer comment for fmt (2)"}},
+						},
+						{
+							path:  "github.com/homuler/foo",
+							group: Foreign,
+						},
+						{
+							path:  "local/buz",
+							group: Local,
+						},
+					},
+					header:     [][]string{{"// header comment"}},
+					doc:        [][]string{{"// doc comment (1)", "// doc comment (2)"}},
+					preLparen:  [][]string{{"/*prelparen comment (1)*/"}, {"/*prelparen comment (2)*/"}},
+					postLparen: [][]string{{"// postlparen comment (1)"}, {"// postlparen comment (2)"}},
+					stdLibDoc:  [][]string{{"// stdlib comment (1)"}, {"// stdlib comment (2)"}},
+					foreignDoc: [][]string{{"// foreign comment"}},
+					localDoc:   [][]string{{"// local comment"}},
+					bottom:     [][]string{{"// bottom comment (1)"}, {"// bottom comment (2)"}},
+					postRparen: [][]string{{"// postrparen comment (1)"}, {"// postrparen comment (2)"}},
+					footer:     [][]string{{"// footer comment (1)"}, {"// footer comment (2)"}},
+				}, decls[0])
+			},
+		},
+		{
+			description: "Keep import C declarations",
+			src: `package main
+
+/*
+#include <stdlib.h>
+*/
+import/*path comment for C*/"C"// line comment for C
+// footer comment for C
+
+import (
+	"fmt"
+)
+
+// unrelated comments`,
+			f: func(t *testing.T, sf *sourceFile) {
+				decls := sf.importDecls
+				assert.Len(t, decls, 2)
+
+				runImportDeclTest(t, declValue{
+					specs: []specValue{
+						{
+							path:        "C",
+							group:       StdLib,
+							pathComment: [][]string{{"/*path comment for C*/"}},
+							comment:     [][]string{{"// line comment for C"}},
+						},
+					},
+					doc:    [][]string{{"/*\n#include <stdlib.h>\n*/"}},
+					footer: [][]string{{"// footer comment for C"}},
+				}, decls[0])
+
+				runImportDeclTest(t, declValue{
+					specs: []specValue{
+						{
+							path:  "fmt",
+							group: StdLib,
+						},
+					},
+				}, decls[1])
+			},
+		},
+		{
+			description: "Extract import C declarations",
+			src: `package main
+
+import (
+	// #include <stdio.h>
+	"C"// line comment for C (1)
+	"fmt"
+	/*
+#include <stdlib.h>
+*/
+	"C"// line comment for C (2)
+	// footer comment for C
+)
+
+// unrelated comments`,
+			f: func(t *testing.T, sf *sourceFile) {
+				decls := sf.importDecls
+				assert.Len(t, decls, 3)
+
+				runImportDeclTest(t, declValue{
+					specs: []specValue{
+						{
+							path:    "C",
+							group:   StdLib,
+							comment: [][]string{{"// line comment for C (1)"}},
+						},
+					},
+					doc: [][]string{{"// #include <stdio.h>"}},
+				}, decls[0])
+
+				runImportDeclTest(t, declValue{
+					specs: []specValue{
+						{
+							path:    "C",
+							group:   StdLib,
+							comment: [][]string{{"// line comment for C (2)"}},
+						},
+					},
+					doc:    [][]string{{"/*\n#include <stdlib.h>\n*/"}},
+					footer: [][]string{{"// footer comment for C"}},
+				}, decls[1])
+
+				runImportDeclTest(t, declValue{
+					specs: []specValue{
+						{
+							path:  "fmt",
+							group: StdLib,
+						},
+					},
+				}, decls[2])
+			},
+		},
+	}
+
+	fileSet := token.NewFileSet()
+
+	for i, c := range cases {
+		src := []byte(c.src)
+		srcPath := fmt.Sprintf("case%03v.go", i+1)
+		t.Run(c.description, func(t *testing.T) {
+			file, err := parser.ParseFile(fileSet, srcPath, src, parser.ImportsOnly|parser.ParseComments)
+			if err != nil {
+				t.Error(fmt.Errorf("Failed to parse %s: %w", srcPath, err))
+				return
+			}
+			sf := newSourceFile(src, fileSet, file, options)
+			sf.squashImportDecls()
+			c.f(t, sf)
 		})
 	}
 }

@@ -267,33 +267,39 @@ func newSourceFile(src []byte, fileSet *token.FileSet, astFile *ast.File, option
 // sync synchronize astFile and tokenFile with importDecls.
 // This will change astFile and tokenFile.
 func (sf *sourceFile) sync() {
-	start := token.Pos(sf.tokenFile.Size())
-	end := token.NoPos
+	tokenFile := sf.tokenFile
+	startPos := tokenFile.Pos(tokenFile.Size())
+	endPos := token.NoPos
 
 	for _, decl := range sf.importDecls {
-		if decl.pos < start {
-			start = decl.pos
+		if decl.pos < startPos {
+			startPos = decl.pos
 		}
-		if decl.end > end {
-			end = decl.end
+		if decl.end > endPos {
+			endPos = decl.end
 		}
 	}
 
+	start := tokenFile.Offset(startPos)
+	end := tokenFile.Offset(endPos)
+
 	sw := newSourceWriter(sf.tokenFile)
-	sw.writeByte(sf.src[:start-1]...)
+	sw.writeByte(sf.src[:start]...)
 
 	for _, decl := range sf.importDecls {
 		sw.writeImportDecl(decl)
 	}
 
-	if sw.pos > end {
+	if sw.pos > endPos {
+		fmt.Printf("sw.pos > endPos: %v, %v\n", sw.pos, endPos)
 		// If the total length of import declarations get larger than the original, reconstruct AST to correct other tokens' positions.
-		sw.writeByte(sf.src[end-1:]...)
+		sw.writeByte(sf.src[end:]...)
 		sf.src = sw.output
 		sf.fileSet = token.NewFileSet()
 		file, err := parseFile(sf.fileSet, sf.tokenFile.Name(), sf.src, sf.options)
 
 		if err != nil {
+			fmt.Println(string(sf.src))
 			panic(fmt.Sprintf("Failed to reconstruct AST: %v", err))
 		}
 		sf.astFile = file
@@ -301,11 +307,11 @@ func (sf *sourceFile) sync() {
 		return
 	}
 
-	for sw.pos < end {
+	for sw.pos < endPos {
 		// TODO: is it correct?
 		sw.writeNewline()
 	}
-	sw.writeByte(sf.src[end-1:]...)
+	sw.writeByte(sf.src[end:]...)
 	sf.src = sw.output
 	sf.tokenFile.SetLinesForContent(sf.src)
 
@@ -314,38 +320,46 @@ func (sf *sourceFile) sync() {
 	mergedComments := make([]*ast.CommentGroup, 0)
 
 	for _, decl := range sf.importDecls {
-		decl.node.Doc = nil // reset Doc to sort comments
-		for _, doc := range decl.doc {
-			if decl.node.Doc == nil {
-				decl.node.Doc = doc
-				continue
+		if len(decl.doc) > 0 {
+			decl.node.Doc = nil // reset Doc to sort comments
+			for _, doc := range decl.doc {
+				if decl.node.Doc == nil {
+					decl.node.Doc = doc
+					continue
+				}
+				decl.node.Doc.List = append(decl.node.Doc.List, doc.List...)
+				mergedComments = append(mergedComments, doc)
 			}
-			decl.node.Doc.List = append(decl.node.Doc.List, doc.List...)
-			mergedComments = append(mergedComments, doc)
+			decl.doc = []*ast.CommentGroup{decl.node.Doc}
 		}
 
 		decl.node.Specs = nil // reset Specs to sort specs
 		for _, spec := range decl.specs {
-			spec.node.Doc = nil // reset Doc to sort comments
-			for _, doc := range spec.doc {
-				if spec.node.Doc == nil {
-					spec.node.Doc = doc
-					continue
+			if len(spec.doc) > 0 {
+				spec.node.Doc = nil // reset Doc to sort comments
+				for _, doc := range spec.doc {
+					if spec.node.Doc == nil {
+						spec.node.Doc = doc
+						continue
+					}
+					spec.node.Doc.List = append(spec.node.Doc.List, doc.List...)
+					mergedComments = append(mergedComments, doc)
 				}
-				spec.node.Doc.List = append(spec.node.Doc.List, doc.List...)
-				mergedComments = append(mergedComments, doc)
+				spec.doc = []*ast.CommentGroup{spec.node.Doc}
 			}
 
-			spec.node.Comment = nil // reset Comment to sort comments
-			for _, doc := range spec.comment {
-				if spec.node.Comment == nil {
-					spec.node.Comment = doc
-					continue
+			if len(spec.comment) > 0 {
+				spec.node.Comment = nil // reset Comment to sort comments
+				for _, doc := range spec.comment {
+					if spec.node.Comment == nil {
+						spec.node.Comment = doc
+						continue
+					}
+					spec.node.Comment.List = append(spec.node.Comment.List, doc.List...)
+					mergedComments = append(mergedComments, doc)
 				}
-				spec.node.Comment.List = append(spec.node.Comment.List, doc.List...)
-				mergedComments = append(mergedComments, doc)
+				spec.comment = []*ast.CommentGroup{spec.node.Comment}
 			}
-
 			decl.node.Specs = append(decl.node.Specs, spec.node)
 		}
 		newDecls = append(newDecls, decl.node)
@@ -372,21 +386,11 @@ func (sf *sourceFile) sync() {
 }
 
 func (sf *sourceFile) squashImportDecls() {
-	if len(sf.importDecls) <= 1 {
-		return
-	}
-
-	var cdecl *ImportDecl
+	var cdecls []*ImportDecl
 	var decl *ImportDecl
 	for _, d := range sf.importDecls {
-		c, d := d.distillCImports()
-		if c != nil {
-			if cdecl == nil {
-				cdecl = c
-			} else {
-				cdecl.merge(c)
-			}
-		}
+		cs, d := d.distillCImports()
+		cdecls = append(cdecls, cs...)
 		if d != nil {
 			if decl == nil {
 				decl = d
@@ -395,17 +399,17 @@ func (sf *sourceFile) squashImportDecls() {
 			}
 		}
 	}
-	decls := make([]*ImportDecl, 0, 2)
-
-	if cdecl != nil {
-		decls = append(decls, cdecl)
-	}
+	decls := make([]*ImportDecl, 0, len(cdecls)+1)
+	decls = append(decls, cdecls...)
 	if decl != nil {
 		decl.dedupe()
 		decls = append(decls, decl)
 	}
-	sf.importDecls = decls
-	sf.sync()
+
+	if len(decls) != len(sf.importDecls) {
+		sf.importDecls = decls
+		sf.sync()
+	}
 }
 
 type byCommentPos []*ast.CommentGroup
