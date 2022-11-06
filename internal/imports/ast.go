@@ -89,8 +89,8 @@ func (x bySpecGroup) Less(i, j int) bool {
 	return x[i].firstComment() < x[j].firstComment()
 }
 
-// ImportDecl represents *ast.GenDecl (import declaration) with the relavent comments
-type ImportDecl struct {
+// importDecl represents *ast.GenDecl (import declaration) with the relavent comments
+type importDecl struct {
 	node  *ast.GenDecl
 	specs []*importSpec
 
@@ -109,13 +109,13 @@ type ImportDecl struct {
 	end token.Pos
 }
 
-func newImportDecl(d *ast.GenDecl, localPrefix string) *ImportDecl {
-	return &ImportDecl{node: d, pos: d.Pos(), end: d.End()}
+func newImportDecl(d *ast.GenDecl, localPrefix string) *importDecl {
+	return &importDecl{node: d, pos: d.Pos(), end: d.End()}
 }
 
-func newSingleImportDecl(spec *importSpec) *ImportDecl {
+func newSingleImportDecl(spec *importSpec) *importDecl {
 	gen := &ast.GenDecl{Tok: token.IMPORT, TokPos: spec.node.Pos()}
-	decl := ImportDecl{node: gen, pos: spec.pos, end: spec.end}
+	decl := importDecl{node: gen, pos: spec.pos, end: spec.end}
 
 	decl.addDoc(spec.doc...)
 	spec.doc = nil
@@ -126,19 +126,19 @@ func newSingleImportDecl(spec *importSpec) *ImportDecl {
 	return &decl
 }
 
-func (decl *ImportDecl) isCImportDecl() bool {
+func (decl *importDecl) isCImportDecl() bool {
 	if len(decl.specs) != 1 {
 		return false
 	}
 	return decl.specs[0].isCSpec()
 }
 
-func (decl *ImportDecl) distillCImports() ([]*ImportDecl, *ImportDecl) {
+func (decl *importDecl) distillCImports() ([]*importDecl, *importDecl) {
 	if decl.isCImportDecl() {
-		return []*ImportDecl{decl}, nil
+		return []*importDecl{decl}, nil
 	}
 
-	var cdecls []*ImportDecl
+	var cdecls []*importDecl
 	specs := make([]*importSpec, 0, len(decl.specs))
 
 	for _, spec := range decl.specs {
@@ -156,7 +156,7 @@ func (decl *ImportDecl) distillCImports() ([]*ImportDecl, *ImportDecl) {
 	return cdecls, decl
 }
 
-func (decl *ImportDecl) addSpec(ss ...*importSpec) {
+func (decl *importDecl) addSpec(ss ...*importSpec) {
 	decl.specs = append(decl.specs, ss...)
 	for _, s := range ss {
 		if s.pos < decl.pos {
@@ -169,7 +169,7 @@ func (decl *ImportDecl) addSpec(ss ...*importSpec) {
 	sort.Sort(bySpecGroup(decl.specs))
 }
 
-func (decl *ImportDecl) addHeader(cg ...*ast.CommentGroup) {
+func (decl *importDecl) addHeader(cg ...*ast.CommentGroup) {
 	decl.header = append(decl.header, cg...)
 	for _, c := range cg {
 		p := c.Pos()
@@ -180,7 +180,7 @@ func (decl *ImportDecl) addHeader(cg ...*ast.CommentGroup) {
 	sort.Sort(byCommentPos(decl.header))
 }
 
-func (decl *ImportDecl) addDoc(cg ...*ast.CommentGroup) {
+func (decl *importDecl) addDoc(cg ...*ast.CommentGroup) {
 	decl.doc = append(decl.doc, cg...)
 	for _, c := range cg {
 		p := c.Pos()
@@ -191,37 +191,37 @@ func (decl *ImportDecl) addDoc(cg ...*ast.CommentGroup) {
 	sort.Sort(byCommentPos(decl.doc))
 }
 
-func (decl *ImportDecl) addPreLparen(cg ...*ast.CommentGroup) {
+func (decl *importDecl) addPreLparen(cg ...*ast.CommentGroup) {
 	decl.preLparen = append(decl.preLparen, cg...)
 	sort.Sort(byCommentPos(decl.preLparen))
 }
 
-func (decl *ImportDecl) addPostLparen(cg ...*ast.CommentGroup) {
+func (decl *importDecl) addPostLparen(cg ...*ast.CommentGroup) {
 	decl.postLparen = append(decl.postLparen, cg...)
 	sort.Sort(byCommentPos(decl.postLparen))
 }
 
-func (decl *ImportDecl) addStdLibDoc(cg ...*ast.CommentGroup) {
+func (decl *importDecl) addStdLibDoc(cg ...*ast.CommentGroup) {
 	decl.stdLibDoc = append(decl.stdLibDoc, cg...)
 	sort.Sort(byCommentPos(decl.stdLibDoc))
 }
 
-func (decl *ImportDecl) addForeignDoc(cg ...*ast.CommentGroup) {
+func (decl *importDecl) addForeignDoc(cg ...*ast.CommentGroup) {
 	decl.foreignDoc = append(decl.foreignDoc, cg...)
 	sort.Sort(byCommentPos(decl.foreignDoc))
 }
 
-func (decl *ImportDecl) addLocalDoc(cg ...*ast.CommentGroup) {
+func (decl *importDecl) addLocalDoc(cg ...*ast.CommentGroup) {
 	decl.localDoc = append(decl.localDoc, cg...)
 	sort.Sort(byCommentPos(decl.localDoc))
 }
 
-func (decl *ImportDecl) addBottom(cg ...*ast.CommentGroup) {
+func (decl *importDecl) addBottom(cg ...*ast.CommentGroup) {
 	decl.bottom = append(decl.bottom, cg...)
 	sort.Sort(byCommentPos(decl.bottom))
 }
 
-func (decl *ImportDecl) addPostRparen(cg ...*ast.CommentGroup) {
+func (decl *importDecl) addPostRparen(cg ...*ast.CommentGroup) {
 	decl.postRparen = append(decl.postRparen, cg...)
 	for _, c := range cg {
 		p := c.End()
@@ -232,7 +232,7 @@ func (decl *ImportDecl) addPostRparen(cg ...*ast.CommentGroup) {
 	sort.Sort(byCommentPos(decl.postRparen))
 }
 
-func (decl *ImportDecl) addFooter(cg ...*ast.CommentGroup) {
+func (decl *importDecl) addFooter(cg ...*ast.CommentGroup) {
 	decl.footer = append(decl.footer, cg...)
 	for _, c := range cg {
 		p := c.End()
@@ -243,7 +243,7 @@ func (decl *ImportDecl) addFooter(cg ...*ast.CommentGroup) {
 	sort.Sort(byCommentPos(decl.footer))
 }
 
-func (decl *ImportDecl) addGroupDoc(c *ast.CommentGroup, g SpecGroup) {
+func (decl *importDecl) addGroupDoc(c *ast.CommentGroup, g SpecGroup) {
 	switch g {
 	case StdLib:
 		decl.addStdLibDoc(c)
@@ -255,7 +255,7 @@ func (decl *ImportDecl) addGroupDoc(c *ast.CommentGroup, g SpecGroup) {
 }
 
 // merge merges x and y.
-func (x *ImportDecl) merge(y *ImportDecl) {
+func (x *importDecl) merge(y *importDecl) {
 	x.normalize()
 	y.normalize()
 
@@ -272,7 +272,7 @@ func (x *ImportDecl) merge(y *ImportDecl) {
 	x.addFooter(y.footer...)
 }
 
-func (decl *ImportDecl) normalize() {
+func (decl *importDecl) normalize() {
 	if decl.node.Lparen.IsValid() {
 		return
 	}
@@ -290,7 +290,7 @@ func (decl *ImportDecl) normalize() {
 	}
 }
 
-func (decl *ImportDecl) dedupe() {
+func (decl *importDecl) dedupe() {
 	if len(decl.specs) < 2 {
 		return
 	}
@@ -471,7 +471,7 @@ func newImportDeclReader(src []byte, tokenFile *token.File, astFile *ast.File, l
 	}
 }
 
-func (idr *importDeclReader) readNext() (*ImportDecl, bool) {
+func (idr *importDeclReader) readNext() (*importDecl, bool) {
 	idr.declIndex++
 	if idr.declIndex >= len(idr.decls) {
 		return nil, false
@@ -639,7 +639,7 @@ func newSourceWriter(tokenFile *token.File) *sourceWriter {
 	return &sourceWriter{tokenFile: tokenFile, output: make([]byte, 0, 1<<14), pos: tokenFile.Pos(0)}
 }
 
-func (sw *sourceWriter) writeImportDecl(decl *ImportDecl) {
+func (sw *sourceWriter) writeImportDecl(decl *importDecl) {
 	if !decl.node.Lparen.IsValid() {
 		sw.writeFloatingComments(decl.header)
 		sw.writeComments(decl.doc)
@@ -781,9 +781,4 @@ func (sw *sourceWriter) writeSpace() {
 func (sw *sourceWriter) writeByte(bs ...byte) {
 	sw.output = append(sw.output, bs...)
 	sw.pos += token.Pos(len(bs))
-}
-
-func (sw *sourceWriter) delete(n int) {
-	sw.output = sw.output[:len(sw.output)-n]
-	sw.pos--
 }

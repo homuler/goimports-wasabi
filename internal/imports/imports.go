@@ -246,7 +246,7 @@ type sourceFile struct {
 	tokenFile   *token.File
 	astFile     *ast.File
 	options     *Options
-	importDecls []*ImportDecl
+	importDecls []*importDecl
 }
 
 func newSourceFile(src []byte, fileSet *token.FileSet, astFile *ast.File, options *Options) *sourceFile {
@@ -386,8 +386,8 @@ func (sf *sourceFile) sync() {
 }
 
 func (sf *sourceFile) squashImportDecls() {
-	var cdecls []*ImportDecl
-	var decl *ImportDecl
+	var cdecls []*importDecl
+	var decl *importDecl
 	for _, d := range sf.importDecls {
 		cs, d := d.distillCImports()
 		cdecls = append(cdecls, cs...)
@@ -399,7 +399,7 @@ func (sf *sourceFile) squashImportDecls() {
 			}
 		}
 	}
-	decls := make([]*ImportDecl, 0, len(cdecls)+1)
+	decls := make([]*importDecl, 0, len(cdecls)+1)
 	decls = append(decls, cdecls...)
 	if decl != nil {
 		decl.dedupe()

@@ -105,7 +105,7 @@ type specValue struct {
 	footer      [][]string
 }
 
-func runImportDeclTest(t *testing.T, expected declValue, actual *ImportDecl) {
+func runImportDeclTest(t *testing.T, expected declValue, actual *importDecl) {
 	t.Run("ImportDecl", func(t *testing.T) {
 		t.Run("Specs", func(t *testing.T) {
 			if assert.Len(t, actual.specs, len(expected.specs)) {
