@@ -30,7 +30,7 @@ type entry struct {
 	source, golden string
 }
 
-const datadir = "testdata/sort"
+const datadir = "testdata"
 
 var data []entry = []entry{
 	{source: "case01.input", golden: "case01.golden"},
@@ -783,6 +783,21 @@ import/*prelparen comment (2)*/(// postlparen comment (2)
 import/*path comment for C*/"C"// line comment for C
 // footer comment for C
 
+// #include <stdio.h>
+import/*prelparen comment*/(// postlparen comment
+	/*path comment for C*/"C"// line comment for C
+	// footer comment for C
+
+	// bottom comment
+)// postrparen comment
+// footer comment
+
+// doc comment
+import (
+	// #include <string.h>
+	"C"
+)
+
 import (
 	"fmt"
 )
@@ -790,7 +805,7 @@ import (
 // unrelated comments`,
 			f: func(t *testing.T, sf *sourceFile) {
 				decls := sf.importDecls
-				assert.Len(t, decls, 2)
+				assert.Len(t, decls, 4)
 
 				runImportDeclTest(t, declValue{
 					specs: []specValue{
@@ -808,21 +823,50 @@ import (
 				runImportDeclTest(t, declValue{
 					specs: []specValue{
 						{
+							path:        "C",
+							group:       StdLib,
+							pathComment: [][]string{{"/*path comment for C*/"}},
+							comment:     [][]string{{"// line comment for C"}},
+							footer:      [][]string{{"// footer comment for C"}},
+						},
+					},
+					doc:        [][]string{{"// #include <stdio.h>"}},
+					preLparen:  [][]string{{"/*prelparen comment*/"}},
+					postLparen: [][]string{{"// postlparen comment"}},
+					bottom:     [][]string{{"// bottom comment"}},
+					postRparen: [][]string{{"// postrparen comment"}},
+					footer:     [][]string{{"// footer comment"}},
+				}, decls[1])
+
+				runImportDeclTest(t, declValue{
+					specs: []specValue{
+						{
+							path:  "C",
+							group: StdLib,
+							doc:   [][]string{{"// #include <string.h>"}},
+						},
+					},
+					doc: [][]string{{"// doc comment"}},
+				}, decls[2])
+
+				runImportDeclTest(t, declValue{
+					specs: []specValue{
+						{
 							path:  "fmt",
 							group: StdLib,
 						},
 					},
-				}, decls[1])
+				}, decls[3])
 			},
 		},
 		{
 			description: "Extract import C declarations",
 			src: `package main
 
+// doc comment (this will be ignored)
 import (
 	// #include <stdio.h>
 	"C"// line comment for C (1)
-	"fmt"
 	/*
 #include <stdlib.h>
 */
@@ -830,10 +874,18 @@ import (
 	// footer comment for C
 )
 
+// #include <string.h>
+import (
+	"C"
+)
+
+// #include <math.h>
+import(/*path comment*/"C"/*line comment*/)
+
 // unrelated comments`,
 			f: func(t *testing.T, sf *sourceFile) {
 				decls := sf.importDecls
-				assert.Len(t, decls, 3)
+				assert.Len(t, decls, 4)
 
 				runImportDeclTest(t, declValue{
 					specs: []specValue{
@@ -861,11 +913,98 @@ import (
 				runImportDeclTest(t, declValue{
 					specs: []specValue{
 						{
-							path:  "fmt",
+							path:  "C",
+							group: StdLib,
+						},
+					},
+					doc: [][]string{{"// #include <string.h>"}},
+				}, decls[2])
+
+				runImportDeclTest(t, declValue{
+					specs: []specValue{
+						{
+							path:        "C",
+							group:       StdLib,
+							pathComment: [][]string{{"/*path comment*/"}},
+							comment:     [][]string{{"/*line comment*/"}},
+						},
+					},
+					doc: [][]string{{"// #include <math.h>"}},
+				}, decls[3])
+			},
+		},
+		{
+			description: "Extract import C declarations and merge remainings",
+			src: `package main
+
+// doc comment
+import (
+	// #include <stdio.h>
+	"C"// line comment for C (1)
+	"context"
+	/*
+#include <stdlib.h>
+*/
+	"C"// line comment for C (2)
+	// footer comment for C
+)
+
+// #include <string.h> (this line is not a comment for C)
+import (
+	"C"
+	"fmt"
+)
+
+// unrelated comments`,
+			f: func(t *testing.T, sf *sourceFile) {
+				decls := sf.importDecls
+				assert.Len(t, decls, 4)
+
+				runImportDeclTest(t, declValue{
+					specs: []specValue{
+						{
+							path:    "C",
+							group:   StdLib,
+							comment: [][]string{{"// line comment for C (1)"}},
+						},
+					},
+					doc: [][]string{{"// #include <stdio.h>"}},
+				}, decls[0])
+
+				runImportDeclTest(t, declValue{
+					specs: []specValue{
+						{
+							path:    "C",
+							group:   StdLib,
+							comment: [][]string{{"// line comment for C (2)"}},
+						},
+					},
+					doc:    [][]string{{"/*\n#include <stdlib.h>\n*/"}},
+					footer: [][]string{{"// footer comment for C"}},
+				}, decls[1])
+
+				runImportDeclTest(t, declValue{
+					specs: []specValue{
+						{
+							path:  "C",
 							group: StdLib,
 						},
 					},
 				}, decls[2])
+
+				runImportDeclTest(t, declValue{
+					specs: []specValue{
+						{
+							path:  "context",
+							group: StdLib,
+						},
+						{
+							path:  "fmt",
+							group: StdLib,
+						},
+					},
+					doc: [][]string{{"// doc comment", "// #include <string.h> (this line is not a comment for C)"}},
+				}, decls[3])
 			},
 		},
 	}

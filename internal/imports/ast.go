@@ -152,7 +152,11 @@ func (decl *importDecl) distillCImports() ([]*importDecl, *importDecl) {
 	if len(cdecls) == 0 {
 		return nil, decl
 	}
+
 	decl.specs = specs
+	if len(decl.specs) == 0 {
+		return cdecls, nil
+	}
 	return cdecls, decl
 }
 
