@@ -19,11 +19,11 @@ import (
 	"sync"
 	"testing"
 
-	"golang.org/x/mod/module"
 	"github.com/homuler/goimports/internal/gocommand"
 	"github.com/homuler/goimports/internal/gopathwalk"
 	"github.com/homuler/goimports/internal/proxydir"
 	"github.com/homuler/goimports/internal/testenv"
+	"golang.org/x/mod/module"
 	"golang.org/x/tools/txtar"
 )
 

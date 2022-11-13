@@ -11,7 +11,6 @@ import (
 	"flag"
 	"fmt"
 	"go/scanner"
-	exec "golang.org/x/sys/execabs"
 	"io"
 	"io/ioutil"
 	"log"
@@ -23,6 +22,7 @@ import (
 
 	"github.com/homuler/goimports/internal/gocommand"
 	"github.com/homuler/goimports/internal/imports"
+	exec "golang.org/x/sys/execabs"
 )
 
 var (

@@ -25,9 +25,9 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"golang.org/x/tools/go/ast/astutil"
 	"github.com/homuler/goimports/internal/gocommand"
 	"github.com/homuler/goimports/internal/gopathwalk"
+	"golang.org/x/tools/go/ast/astutil"
 )
 
 // importToGroup is a list of functions which map from an import path to
