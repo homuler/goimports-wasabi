@@ -1,0 +1,5 @@
+package p
+
+import "golang.org/x/net/http2/hpack"
+
+var _ = hpack.HuffmanDecode

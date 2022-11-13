@@ -1,0 +1,14 @@
+// merge unused import declarations
+package main
+
+import f "fmt"
+import (
+	"context"
+	"fmt"
+  "local/foo"
+)
+
+func main() {
+	fmt.Println(context.Background())
+	fmt.Printf("%v %v %v %v\n", x, y, w, z)
+}

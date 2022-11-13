@@ -1,0 +1,27 @@
+// merge multiple import declarations
+package main
+
+import (
+	"github.com/homuler/foo"
+	"fmt"
+	
+	"context"
+)
+
+import (
+	"local/qux"
+	"github.com/homuler/bar"
+	"local/baz"
+)
+
+var (
+	x = foo.X
+	y = bar.Y
+	w = baz.W
+	z = qux.Z
+)
+
+func main() {
+	fmt.Println(context.Background())
+	fmt.Printf("%v %v %v %v\n", x, y, w, z)
+}

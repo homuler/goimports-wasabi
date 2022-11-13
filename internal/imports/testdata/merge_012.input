@@ -1,0 +1,32 @@
+// merge import declarations with comments
+package main
+
+// doc comment (1)
+import (
+	// doc comment for fmt
+	"fmt"
+	"github.com/homuler/foo"
+)
+
+// doc comment for context
+import "context"
+// doc comment for baz
+import "local/baz"
+// doc comment (2)
+import (
+	"local/qux" // comment for qux
+	// doc comment for bar
+	"github.com/homuler/bar"
+)
+
+var (
+	x = foo.X
+	y = bar.Y
+	w = baz.W
+	z = qux.Z
+)
+
+func main() {
+	fmt.Println(context.Background())
+	fmt.Printf("%v %v %v %v\n", x, y, w, z)
+}

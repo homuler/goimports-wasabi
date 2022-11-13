@@ -1,0 +1,27 @@
+// keep import C declarations
+package main
+
+// #include <stdio.h>
+// #include <stdlib.h>
+import "C"
+
+import (
+	"context"
+	"fmt"
+	"unsafe"
+)
+
+// doc comment for C
+import (
+	// static void myprint(char* s) {
+	//   printf("%s\n", s);
+	// }
+	"C"
+)
+
+func main() {
+	cs := C.CString("Hello from stdio")
+	C.myprint(cs)
+	C.free(unsafe.Pointer(cs))
+	fmt.Println(context.Background())
+}

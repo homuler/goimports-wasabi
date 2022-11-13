@@ -1,0 +1,14 @@
+// merge duplicated import declarations
+package main
+
+import "fmt"
+
+import (
+	"context"
+	"fmt"
+)
+
+func main() {
+	fmt.Println(context.Background())
+	fmt.Printf("%v %v %v %v\n", x, y, w, z)
+}

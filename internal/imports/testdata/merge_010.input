@@ -1,0 +1,13 @@
+// merge named import declarations
+package main
+
+import f "fmt"
+import (
+	"context"
+	"fmt"
+)
+
+func main() {
+	fmt.Println(context.Background())
+	f.Printf("%v %v %v %v\n", x, y, w, z)
+}

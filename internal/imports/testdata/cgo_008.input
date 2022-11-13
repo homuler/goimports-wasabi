@@ -1,0 +1,22 @@
+// extract import C declarations
+package main
+
+import (
+	"fmt"
+	// #include <stdio.h>
+	// #include <stdlib.h>
+	//
+	// static void myprint(char* s) {
+	//   printf("%s\n", s);
+	// }
+	"C"
+	"context"
+	"unsafe"
+)
+
+func main() {
+	cs := C.CString("Hello from stdio")
+	C.myprint(cs)
+	C.free(unsafe.Pointer(cs))
+	fmt.Println(context.Background())
+}

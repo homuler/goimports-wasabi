@@ -1,0 +1,68 @@
+// merge comments
+package main
+
+// header comment (1)
+
+// header comment (2)
+
+// doc comment (1)
+// doc comment (2)
+import /* prelparen comment (1) */ /* prelparen comment (2) */ ( // postlparen comment
+
+	// stdlib doc comment (1)
+
+	// stdlib doc comment (2)
+
+	// doc comment for context
+	"context" // comment for context
+	// trailing comment for context
+
+	// doc comment for fmt
+	/* path comment for fmt (1) */ /* path comment for fmt (2) */
+	"fmt"                          // comment for fmt (1)
+	/* comment for fmt (2)
+	 */ // comment for fmt (3)
+	// trailing comment for fmt (1)
+	/* trailing comment for fmt (2)
+	 */
+
+	/* name comment for f */
+	f /* path comment for fmt */ "fmt" // comment for fmt
+
+	// foreign doc comment (1)
+
+	// foreign doc comment (2)
+
+	// doc comment for bar
+	"github.com/homuler/bar" /* comment
+	for bar */ // comment for bar
+	// trailing comment for bar
+
+	// doc comment for foo
+	"github.com/homuler/foo" // comment for foo
+	// trailing comment for foo
+
+	// local doc comment
+
+	// doc comment for baz
+	/* path comment for baz */
+	"local/baz" // comment for baz
+	"local/qux"
+	// bottom comment (1)
+	// bottom comment (2)
+	/* bottom comment (3) */) // postrparen comment (1)
+// postrparen comment (2)
+// trailing comment
+
+// comment for var
+var (
+	x = foo.X
+	y = bar.Y
+	w = baz.W
+	z = qux.Z
+)
+
+func main() {
+	fmt.Println(context.Background())
+	f.Printf("%v %v %v %v\n", x, y, w, z)
+}

@@ -1,0 +1,11 @@
+// merge multiple single import declarations
+package main
+
+import "fmt"
+import "context"
+import "strconv"
+
+func main() {
+	fmt.Println(context.Background())
+	fmt.Printf("%v\n", strconv.Atoi("10"))
+}
