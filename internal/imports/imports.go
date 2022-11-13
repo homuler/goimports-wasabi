@@ -269,6 +269,7 @@ func newSourceFile(src []byte, fileSet *token.FileSet, astFile *ast.File, option
 // This will change astFile and tokenFile.
 func (sf *sourceFile) sync() error {
 	tokenFile := sf.tokenFile
+	packageEnd := sf.astFile.Name.End()
 	startPos := tokenFile.Pos(tokenFile.Size())
 	endPos := token.NoPos
 
@@ -281,6 +282,16 @@ func (sf *sourceFile) sync() error {
 		}
 	}
 
+	// fixImports may insert import declarations at pos 1 and can cause a compile error.
+	// If the character at packageEnd + 1 is not a newline nor a semicolon, it can fail to output a correct code.
+	// TODO: fix fixImports
+	if startPos < packageEnd {
+		startPos = packageEnd + 1
+	}
+	if endPos < packageEnd {
+		endPos = packageEnd + 1
+	}
+
 	start := tokenFile.Offset(startPos)
 	end := tokenFile.Offset(endPos)
 
@@ -289,10 +300,14 @@ func (sf *sourceFile) sync() error {
 
 	for _, decl := range sf.importDecls {
 		sw.writeImportDecl(decl)
+		sw.writeNewline()
+	}
+	// delete the last newline
+	if len(sf.importDecls) > 0 {
+		sw.delete()
 	}
 
-	if sw.pos > endPos {
-		fmt.Printf("sw.pos > endPos: %v, %v\n", sw.pos, endPos)
+	if sw.pos > endPos+1 {
 		// If the total length of import declarations get larger than the original, reconstruct AST to correct other tokens' positions.
 		sw.writeByte(sf.src[end:]...)
 		sf.src = sw.output
@@ -300,7 +315,6 @@ func (sf *sourceFile) sync() error {
 		file, err := parseFile(sf.fileSet, sf.tokenFile.Name(), sf.src, sf.options)
 
 		if err != nil {
-			fmt.Println(string(sf.src))
 			return fmt.Errorf("failed to reconstruct AST: %w", err)
 		}
 		sf.astFile = file

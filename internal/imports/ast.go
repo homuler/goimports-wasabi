@@ -672,6 +672,9 @@ func (sw *sourceWriter) writeImportDecl(decl *importDecl) {
 
 			switch sg {
 			case StdLib:
+				if len(decl.postLparen) > 0 {
+					sw.writeNewline()
+				}
 				if decl.stdLibDoc != nil {
 					sw.writeFloatingComments(decl.stdLibDoc)
 				}
@@ -699,6 +702,10 @@ func (sw *sourceWriter) writeImportDecl(decl *importDecl) {
 	sw.writeString(token.RPAREN.String())
 	sw.writeInlineComments(decl.postRparen)
 	sw.writeNewline()
+	if len(decl.footer) > 0 {
+		sw.writeComments(decl.footer)
+		sw.writeNewline()
+	}
 }
 
 func (sw *sourceWriter) writeImportSpec(spec *importSpec) {
@@ -785,4 +792,9 @@ func (sw *sourceWriter) writeSpace() {
 func (sw *sourceWriter) writeByte(bs ...byte) {
 	sw.output = append(sw.output, bs...)
 	sw.pos += token.Pos(len(bs))
+}
+
+func (sw *sourceWriter) delete() {
+	sw.output = sw.output[:len(sw.output)-1]
+	sw.pos--
 }
