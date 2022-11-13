@@ -63,7 +63,9 @@ func Process(filename string, src []byte, opt *Options) (formatted []byte, err e
 // formatted file, and returns the postpocessed result.
 func formatFile(fset *token.FileSet, file *ast.File, src []byte, adjust func(orig []byte, src []byte) []byte, opt *Options) ([]byte, error) {
 	sf := newSourceFile(src, fset, file, opt)
-	sf.squashImportDecls()
+	if err := sf.squashImportDecls(); err != nil {
+		return nil, err
+	}
 
 	printerMode := printer.UseSpaces
 	if opt.TabIndent {
@@ -72,8 +74,7 @@ func formatFile(fset *token.FileSet, file *ast.File, src []byte, adjust func(ori
 	printConfig := &printer.Config{Mode: printerMode, Tabwidth: opt.TabWidth}
 
 	var buf bytes.Buffer
-	err := printConfig.Fprint(&buf, sf.fileSet, sf.astFile)
-	if err != nil {
+	if err := printConfig.Fprint(&buf, sf.fileSet, sf.astFile); err != nil {
 		return nil, err
 	}
 	out := buf.Bytes()
@@ -81,7 +82,7 @@ func formatFile(fset *token.FileSet, file *ast.File, src []byte, adjust func(ori
 		out = adjust(src, out)
 	}
 
-	out, err = format.Source(out)
+	out, err := format.Source(out)
 	if err != nil {
 		return nil, err
 	}
@@ -266,7 +267,7 @@ func newSourceFile(src []byte, fileSet *token.FileSet, astFile *ast.File, option
 
 // sync synchronize astFile and tokenFile with importDecls.
 // This will change astFile and tokenFile.
-func (sf *sourceFile) sync() {
+func (sf *sourceFile) sync() error {
 	tokenFile := sf.tokenFile
 	startPos := tokenFile.Pos(tokenFile.Size())
 	endPos := token.NoPos
@@ -300,11 +301,11 @@ func (sf *sourceFile) sync() {
 
 		if err != nil {
 			fmt.Println(string(sf.src))
-			panic(fmt.Sprintf("Failed to reconstruct AST: %v", err))
+			return fmt.Errorf("failed to reconstruct AST: %w", err)
 		}
 		sf.astFile = file
 		sf.tokenFile.SetLinesForContent(sf.src)
-		return
+		return nil
 	}
 
 	for sw.pos < endPos {
@@ -383,9 +384,11 @@ func (sf *sourceFile) sync() {
 			sf.astFile.Comments = append(sf.astFile.Comments[:cindex], sf.astFile.Comments[cindex+1:]...)
 		}
 	}
+
+	return nil
 }
 
-func (sf *sourceFile) squashImportDecls() {
+func (sf *sourceFile) squashImportDecls() error {
 	var cdecls []*importDecl
 	var decl *importDecl
 	for _, d := range sf.importDecls {
@@ -406,10 +409,8 @@ func (sf *sourceFile) squashImportDecls() {
 		decls = append(decls, decl)
 	}
 
-	if len(decls) != len(sf.importDecls) {
-		sf.importDecls = decls
-		sf.sync()
-	}
+	sf.importDecls = decls
+	return sf.sync()
 }
 
 type byCommentPos []*ast.CommentGroup
