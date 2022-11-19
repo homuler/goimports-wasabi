@@ -3,12 +3,12 @@
 // license that can be found in the LICENSE file.
 
 /*
-Command goimports updates your Go import lines,
+Command goimports-wasabi updates your Go import lines,
 adding missing ones and removing unreferenced ones.
 
-	$ go install golang.org/x/tools/cmd/goimports@latest
+	$ go install github.com/homuler/goimports-wasabi@latest
 
-In addition to fixing imports, goimports also formats
+In addition to fixing imports, goimports-wasabi also formats
 your code in the same style as gofmt so it can be used
 as a replacement for your editor's gofmt-on-save hook.
 
@@ -18,10 +18,10 @@ For emacs, make sure you have the latest go-mode.el:
 
 Then in your .emacs file:
 
-	(setq gofmt-command "goimports")
+	(setq gofmt-command "goimports-wasabi")
 	(add-hook 'before-save-hook 'gofmt-before-save)
 
-For vim, set "gofmt_command" to "goimports":
+For vim, set "gofmt_command" to "goimports-wasabi":
 
 	https://golang.org/change/39c724dd7f252
 	https://golang.org/wiki/IDEsAndTextEditorPlugins
@@ -39,12 +39,12 @@ $GOPATH/src/.goimportsignore which may contain blank lines, comment
 lines (beginning with '#'), or lines naming a directory relative to
 the configuration file to ignore when scanning. No globbing or regex
 patterns are allowed. Use the "-v" verbose flag to verify it's
-working and see what goimports is doing.
+working and see what goimports-wasabi is doing.
 
 File bugs or feature requests at:
 
-	https://golang.org/issues/new?title=x/tools/cmd/goimports:+
+	https://github.com/homuler/goimports-wasabi/issues
 
 Happy hacking!
 */
-package main // import "golang.org/x/tools/cmd/goimports"
+package main // import "github.com/homuler/goimports-wasabi"

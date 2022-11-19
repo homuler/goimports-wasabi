@@ -1,4 +1,4 @@
-module github.com/homuler/goimports
+module github.com/homuler/goimports-wasabi
 
 go 1.19
 
