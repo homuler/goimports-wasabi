@@ -19,8 +19,8 @@ import (
 	"runtime/pprof"
 	"strings"
 
-	"github.com/homuler/goimports/internal/gocommand"
-	"github.com/homuler/goimports/internal/imports"
+	"github.com/homuler/goimports-wasabi/internal/gocommand"
+	"github.com/homuler/goimports-wasabi/internal/imports"
 	exec "golang.org/x/sys/execabs"
 )
 
@@ -52,7 +52,7 @@ var (
 func init() {
 	flag.BoolVar(&options.AllErrors, "e", false, "report all errors (not just the first 10 on different lines)")
 	flag.StringVar(&options.LocalPrefix, "local", "", "put imports beginning with this string after 3rd-party packages; comma-separated list")
-	flag.BoolVar(&options.FormatOnly, "format-only", false, "if true, don't fix imports and only format. In this mode, goimports is effectively gofmt, with the addition that imports are grouped into sections.")
+	flag.BoolVar(&options.FormatOnly, "format-only", false, "if true, don't fix imports and only format. In this mode, goimports-wasabi is effectively gofmt, with the addition that imports are grouped into sections.")
 }
 
 func report(err error) {
@@ -61,7 +61,7 @@ func report(err error) {
 }
 
 func usage() {
-	fmt.Fprintf(os.Stderr, "usage: goimports [flags] [path ...]\n")
+	fmt.Fprintf(os.Stderr, "usage: goimports-wasabi [flags] [path ...]\n")
 	flag.PrintDefaults()
 	os.Exit(2)
 }
@@ -72,19 +72,19 @@ func isGoFile(f os.FileInfo) bool {
 	return !f.IsDir() && !strings.HasPrefix(name, ".") && strings.HasSuffix(name, ".go")
 }
 
-// argumentType is which mode goimports was invoked as.
+// argumentType is which mode goimports-wasabi was invoked as.
 type argumentType int
 
 const (
-	// fromStdin means the user is piping their source into goimports.
+	// fromStdin means the user is piping their source into goimports-wasabi.
 	fromStdin argumentType = iota
 
-	// singleArg is the common case from editors, when goimports is run on
+	// singleArg is the common case from editors, when goimports-wasabi is run on
 	// a single file.
 	singleArg
 
-	// multipleArg is when the user ran "goimports file1.go file2.go"
-	// or ran goimports on a directory tree.
+	// multipleArg is when the user ran "goimports-wasabi file1.go file2.go"
+	// or ran goimports-wasabi on a directory tree.
 	multipleArg
 )
 
@@ -124,10 +124,10 @@ func processFile(filename string, in io.Reader, out io.Writer, argType argumentT
 		} else if argType == singleArg && strings.HasSuffix(*srcdir, ".go") && !isDir(*srcdir) {
 			// For a file which doesn't exist on disk yet, but might shortly.
 			// e.g. user in editor opens $DIR/newfile.go and newfile.go doesn't yet exist on disk.
-			// The goimports on-save hook writes the buffer to a temp file
-			// first and runs goimports before the actual save to newfile.go.
-			// The editor's buffer is named "newfile.go" so that is passed to goimports as:
-			//      goimports -srcdir=/gopath/src/pkg/newfile.go /tmp/gofmtXXXXXXXX.go
+			// The goimports-wasabi on-save hook writes the buffer to a temp file
+			// first and runs goimports-wasabi before the actual save to newfile.go.
+			// The editor's buffer is named "newfile.go" so that is passed to goimports-wasabi as:
+			//      goimports-wasabi -srcdir=/gopath/src/pkg/newfile.go /tmp/gofmtXXXXXXXX.go
 			// and then the editor reloads the result from the tmp file and writes
 			// it to newfile.go.
 			target = *srcdir
@@ -243,7 +243,7 @@ func gofmtMain() {
 		defer pprof.StopCPUProfile()
 	}
 	// doTrace is a conditionally compiled wrapper around runtime/trace. It is
-	// used to allow goimports to compile under gccgo, which does not support
+	// used to allow goimports-wasabi to compile under gccgo, which does not support
 	// runtime/trace. See https://golang.org/issue/15544.
 	defer doTrace()()
 	if *memProfileRate > 0 {

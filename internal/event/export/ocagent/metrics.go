@@ -7,9 +7,9 @@ package ocagent
 import (
 	"time"
 
-	"github.com/homuler/goimports/internal/event/export/metric"
-	"github.com/homuler/goimports/internal/event/export/ocagent/wire"
-	"github.com/homuler/goimports/internal/event/label"
+	"github.com/homuler/goimports-wasabi/internal/event/export/metric"
+	"github.com/homuler/goimports-wasabi/internal/event/export/ocagent/wire"
+	"github.com/homuler/goimports-wasabi/internal/event/label"
 )
 
 // dataToMetricDescriptor return a *wire.MetricDescriptor based on data.

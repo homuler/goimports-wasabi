@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/homuler/goimports/internal/gopathwalk"
+	"github.com/homuler/goimports-wasabi/internal/gopathwalk"
 )
 
 // To find packages to import, the resolver needs to know about all of the

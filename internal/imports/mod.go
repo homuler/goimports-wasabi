@@ -17,8 +17,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/homuler/goimports/internal/gocommand"
-	"github.com/homuler/goimports/internal/gopathwalk"
+	"github.com/homuler/goimports-wasabi/internal/gocommand"
+	"github.com/homuler/goimports-wasabi/internal/gopathwalk"
 	"golang.org/x/mod/module"
 )
 

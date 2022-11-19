@@ -12,10 +12,10 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/homuler/goimports/internal/event"
-	"github.com/homuler/goimports/internal/event/core"
-	"github.com/homuler/goimports/internal/event/export/metric"
-	"github.com/homuler/goimports/internal/event/label"
+	"github.com/homuler/goimports-wasabi/internal/event"
+	"github.com/homuler/goimports-wasabi/internal/event/core"
+	"github.com/homuler/goimports-wasabi/internal/event/export/metric"
+	"github.com/homuler/goimports-wasabi/internal/event/label"
 )
 
 func New() *Exporter {

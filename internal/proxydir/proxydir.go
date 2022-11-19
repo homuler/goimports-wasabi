@@ -15,7 +15,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/homuler/goimports/internal/testenv"
+	"github.com/homuler/goimports-wasabi/internal/testenv"
 )
 
 // WriteModuleVersion creates a directory in the proxy dir for a module.

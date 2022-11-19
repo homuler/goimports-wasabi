@@ -18,13 +18,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/homuler/goimports/internal/event"
-	"github.com/homuler/goimports/internal/event/core"
-	"github.com/homuler/goimports/internal/event/export"
-	"github.com/homuler/goimports/internal/event/export/metric"
-	"github.com/homuler/goimports/internal/event/export/ocagent/wire"
-	"github.com/homuler/goimports/internal/event/keys"
-	"github.com/homuler/goimports/internal/event/label"
+	"github.com/homuler/goimports-wasabi/internal/event"
+	"github.com/homuler/goimports-wasabi/internal/event/core"
+	"github.com/homuler/goimports-wasabi/internal/event/export"
+	"github.com/homuler/goimports-wasabi/internal/event/export/metric"
+	"github.com/homuler/goimports-wasabi/internal/event/export/ocagent/wire"
+	"github.com/homuler/goimports-wasabi/internal/event/keys"
+	"github.com/homuler/goimports-wasabi/internal/event/label"
 )
 
 type Config struct {

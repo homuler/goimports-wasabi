@@ -9,8 +9,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/homuler/goimports/internal/event"
-	"github.com/homuler/goimports/internal/event/keys"
+	"github.com/homuler/goimports-wasabi/internal/event"
+	"github.com/homuler/goimports-wasabi/internal/event/keys"
 )
 
 func TestEncodeMetric(t *testing.T) {

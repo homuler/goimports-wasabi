@@ -17,7 +17,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/homuler/goimports/internal/fastwalk"
+	"github.com/homuler/goimports-wasabi/internal/fastwalk"
 )
 
 func formatFileModes(m map[string]os.FileMode) string {

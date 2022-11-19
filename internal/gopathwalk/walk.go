@@ -16,7 +16,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/homuler/goimports/internal/fastwalk"
+	"github.com/homuler/goimports-wasabi/internal/fastwalk"
 )
 
 // Options controls the behavior of a Walk call.

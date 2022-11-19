@@ -9,8 +9,8 @@ import (
 	"sort"
 	"time"
 
-	"github.com/homuler/goimports/internal/event/keys"
-	"github.com/homuler/goimports/internal/event/label"
+	"github.com/homuler/goimports-wasabi/internal/event/keys"
+	"github.com/homuler/goimports-wasabi/internal/event/label"
 )
 
 // Data represents a single point in the time series of a metric.

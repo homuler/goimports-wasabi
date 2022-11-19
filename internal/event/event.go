@@ -7,9 +7,9 @@ package event
 import (
 	"context"
 
-	"github.com/homuler/goimports/internal/event/core"
-	"github.com/homuler/goimports/internal/event/keys"
-	"github.com/homuler/goimports/internal/event/label"
+	"github.com/homuler/goimports-wasabi/internal/event/core"
+	"github.com/homuler/goimports-wasabi/internal/event/keys"
+	"github.com/homuler/goimports-wasabi/internal/event/label"
 )
 
 // Exporter is a function that handles events.

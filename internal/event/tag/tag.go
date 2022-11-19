@@ -6,7 +6,7 @@
 package tag
 
 import (
-	"github.com/homuler/goimports/internal/event/keys"
+	"github.com/homuler/goimports-wasabi/internal/event/keys"
 )
 
 var (

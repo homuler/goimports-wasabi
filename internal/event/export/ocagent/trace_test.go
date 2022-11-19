@@ -9,7 +9,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/homuler/goimports/internal/event"
+	"github.com/homuler/goimports-wasabi/internal/event"
 )
 
 func TestTrace(t *testing.T) {

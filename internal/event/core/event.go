@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/homuler/goimports/internal/event/label"
+	"github.com/homuler/goimports-wasabi/internal/event/label"
 )
 
 // Event holds the information about an event of note that occurred.

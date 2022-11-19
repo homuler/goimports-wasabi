@@ -18,7 +18,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/homuler/goimports/internal/gocommand"
+	"github.com/homuler/goimports-wasabi/internal/gocommand"
 	"golang.org/x/tools/go/packages/packagestest"
 )
 

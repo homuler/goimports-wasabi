@@ -5,8 +5,8 @@
 package metric
 
 import (
-	"github.com/homuler/goimports/internal/event/keys"
-	"github.com/homuler/goimports/internal/event/label"
+	"github.com/homuler/goimports-wasabi/internal/event/keys"
+	"github.com/homuler/goimports-wasabi/internal/event/label"
 )
 
 // Scalar represents the construction information for a scalar metric.

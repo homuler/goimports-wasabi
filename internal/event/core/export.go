@@ -10,7 +10,7 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/homuler/goimports/internal/event/label"
+	"github.com/homuler/goimports-wasabi/internal/event/label"
 )
 
 // Exporter is a function that handles events.

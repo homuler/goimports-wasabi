@@ -10,9 +10,9 @@ import (
 	"io"
 	"sync"
 
-	"github.com/homuler/goimports/internal/event"
-	"github.com/homuler/goimports/internal/event/core"
-	"github.com/homuler/goimports/internal/event/label"
+	"github.com/homuler/goimports-wasabi/internal/event"
+	"github.com/homuler/goimports-wasabi/internal/event/core"
+	"github.com/homuler/goimports-wasabi/internal/event/label"
 )
 
 // LogWriter returns an Exporter that logs events to the supplied writer.

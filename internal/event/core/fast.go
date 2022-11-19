@@ -7,8 +7,8 @@ package core
 import (
 	"context"
 
-	"github.com/homuler/goimports/internal/event/keys"
-	"github.com/homuler/goimports/internal/event/label"
+	"github.com/homuler/goimports-wasabi/internal/event/keys"
+	"github.com/homuler/goimports-wasabi/internal/event/label"
 )
 
 // Log1 takes a message and one label delivers a log event to the exporter.

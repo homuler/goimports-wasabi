@@ -7,9 +7,9 @@ package export
 import (
 	"context"
 
-	"github.com/homuler/goimports/internal/event"
-	"github.com/homuler/goimports/internal/event/core"
-	"github.com/homuler/goimports/internal/event/label"
+	"github.com/homuler/goimports-wasabi/internal/event"
+	"github.com/homuler/goimports-wasabi/internal/event/core"
+	"github.com/homuler/goimports-wasabi/internal/event/label"
 )
 
 // Labels builds an exporter that manipulates the context using the event.

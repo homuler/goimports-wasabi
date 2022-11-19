@@ -10,7 +10,7 @@ import (
 	"math"
 	"strconv"
 
-	"github.com/homuler/goimports/internal/event/label"
+	"github.com/homuler/goimports-wasabi/internal/event/label"
 )
 
 // Value represents a key for untyped values.

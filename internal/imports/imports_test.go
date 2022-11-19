@@ -15,9 +15,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/homuler/goimports/internal/diff"
-	"github.com/homuler/goimports/internal/gocommand"
-	"github.com/homuler/goimports/internal/testenv"
+	"github.com/homuler/goimports-wasabi/internal/diff"
+	"github.com/homuler/goimports-wasabi/internal/gocommand"
+	"github.com/homuler/goimports-wasabi/internal/testenv"
 	"github.com/stretchr/testify/assert"
 )
 
