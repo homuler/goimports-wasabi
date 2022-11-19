@@ -112,18 +112,40 @@ func checkDiff(t *testing.T, source, golden string) error {
 		return err
 	}
 
-	result, err := Process(source, src, options)
+	gld, err := os.ReadFile(golden)
 	if err != nil {
 		return err
 	}
 
-	gld, err := os.ReadFile(golden)
+	options := &Options{
+		TabWidth:    8,
+		TabIndent:   true,
+		Comments:    true,
+		Fragment:    true,
+		LocalPrefix: "local",
+		Env: &ProcessEnv{
+			GocmdRunner: &gocommand.Runner{},
+		},
+	}
+
+	result, err := Process(source, src, options)
 	if err != nil {
 		return err
 	}
 	if !bytes.Equal(result, gld) {
 		return errors.New(string(diff.Diff(source+".result", result, golden, gld)))
 	}
+
+	// The output should not change depending on the execution path
+	options.ReconstructAST = true
+	result, err = Process(source, src, options)
+	if err != nil {
+		return err
+	}
+	if !bytes.Equal(result, gld) {
+		return errors.New(string(diff.Diff(source+".result", result, golden, gld)))
+	}
+
 	return nil
 }
 

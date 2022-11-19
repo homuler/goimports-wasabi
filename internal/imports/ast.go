@@ -929,7 +929,7 @@ func (sf *SourceFile) sync() error {
 		sw.delete()
 	}
 
-	if sw.pos > endPos {
+	if sw.pos > endPos || sf.options.ReconstructAST {
 		// If the total length of import declarations get larger than the original, reconstruct AST to correct other tokens' positions.
 		sw.writeByte(sf.src[end:]...)
 		sf.src = sw.output
