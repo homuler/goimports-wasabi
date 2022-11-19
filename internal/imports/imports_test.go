@@ -489,6 +489,9 @@ import
 				return
 			}
 			sf := newSourceFile(src, fileSet, file, options)
+			for _, decl := range sf.importDecls {
+				decl.sortAll()
+			}
 			c.f(t, name, sf)
 		})
 	}

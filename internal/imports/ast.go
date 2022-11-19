@@ -193,7 +193,6 @@ func (decl *importDecl) addSpec(ss ...*importSpec) {
 			decl.end = s.end
 		}
 	}
-	sort.Sort(bySpecGroup(decl.specs))
 }
 
 func (decl *importDecl) addHeader(cg ...*ast.CommentGroup) {
@@ -204,7 +203,6 @@ func (decl *importDecl) addHeader(cg ...*ast.CommentGroup) {
 			decl.pos = p
 		}
 	}
-	sort.Sort(byCommentPos(decl.header))
 }
 
 func (decl *importDecl) addDoc(cg ...*ast.CommentGroup) {
@@ -215,42 +213,34 @@ func (decl *importDecl) addDoc(cg ...*ast.CommentGroup) {
 			decl.pos = p
 		}
 	}
-	sort.Sort(byCommentPos(decl.doc))
 }
 
 func (decl *importDecl) addPreLparen(cg ...*ast.CommentGroup) {
 	decl.preLparen = append(decl.preLparen, cg...)
-	sort.Sort(byCommentPos(decl.preLparen))
 }
 
 func (decl *importDecl) addPostLparen(cg ...*ast.CommentGroup) {
 	decl.postLparen = append(decl.postLparen, cg...)
-	sort.Sort(byCommentPos(decl.postLparen))
 }
 
 func (decl *importDecl) addStdLibDoc(cg ...*ast.CommentGroup) {
 	decl.stdLibDoc = append(decl.stdLibDoc, cg...)
-	sort.Sort(byCommentPos(decl.stdLibDoc))
 }
 
 func (decl *importDecl) addAppEngineDoc(cg ...*ast.CommentGroup) {
 	decl.appEngineDoc = append(decl.appEngineDoc, cg...)
-	sort.Sort(byCommentPos(decl.appEngineDoc))
 }
 
 func (decl *importDecl) addForeignLibDoc(cg ...*ast.CommentGroup) {
 	decl.foreignLibDoc = append(decl.foreignLibDoc, cg...)
-	sort.Sort(byCommentPos(decl.foreignLibDoc))
 }
 
 func (decl *importDecl) addLocalLibDoc(cg ...*ast.CommentGroup) {
 	decl.localLibDoc = append(decl.localLibDoc, cg...)
-	sort.Sort(byCommentPos(decl.localLibDoc))
 }
 
 func (decl *importDecl) addBottom(cg ...*ast.CommentGroup) {
 	decl.bottom = append(decl.bottom, cg...)
-	sort.Sort(byCommentPos(decl.bottom))
 }
 
 func (decl *importDecl) addPostRparen(cg ...*ast.CommentGroup) {
@@ -261,7 +251,6 @@ func (decl *importDecl) addPostRparen(cg ...*ast.CommentGroup) {
 			decl.end = p
 		}
 	}
-	sort.Sort(byCommentPos(decl.postRparen))
 }
 
 func (decl *importDecl) addFooter(cg ...*ast.CommentGroup) {
@@ -272,7 +261,6 @@ func (decl *importDecl) addFooter(cg ...*ast.CommentGroup) {
 			decl.end = p
 		}
 	}
-	sort.Sort(byCommentPos(decl.footer))
 }
 
 func (decl *importDecl) addGroupDoc(c *ast.CommentGroup, g SpecGroup) {
@@ -286,6 +274,24 @@ func (decl *importDecl) addGroupDoc(c *ast.CommentGroup, g SpecGroup) {
 	case LocalLib:
 		decl.addLocalLibDoc(c)
 	}
+}
+
+func (decl *importDecl) sortAll() {
+	sort.Sort(bySpecGroup(decl.specs))
+	for _, spec := range decl.specs {
+		spec.sortComments()
+	}
+	sort.Sort(byCommentPos(decl.header))
+	sort.Sort(byCommentPos(decl.doc))
+	sort.Sort(byCommentPos(decl.preLparen))
+	sort.Sort(byCommentPos(decl.postLparen))
+	sort.Sort(byCommentPos(decl.stdLibDoc))
+	sort.Sort(byCommentPos(decl.appEngineDoc))
+	sort.Sort(byCommentPos(decl.foreignLibDoc))
+	sort.Sort(byCommentPos(decl.localLibDoc))
+	sort.Sort(byCommentPos(decl.bottom))
+	sort.Sort(byCommentPos(decl.postRparen))
+	sort.Sort(byCommentPos(decl.footer))
 }
 
 // merge merges x and y.
@@ -346,6 +352,7 @@ func (decl *importDecl) dedupe() {
 			continue
 		}
 		spec.merge(next)
+		spec.sortComments()
 		decl.specs[i+1] = spec
 		decl.specs = append(decl.specs[:i], decl.specs[i+1:]...)
 	}
@@ -428,7 +435,6 @@ func (spec *importSpec) addDoc(cg ...*ast.CommentGroup) {
 			spec.pos = p
 		}
 	}
-	sort.Sort(byCommentPos(spec.doc))
 }
 
 func (spec *importSpec) addNameComment(cg ...*ast.CommentGroup) {
@@ -439,7 +445,6 @@ func (spec *importSpec) addNameComment(cg ...*ast.CommentGroup) {
 			spec.pos = p
 		}
 	}
-	sort.Sort(byCommentPos(spec.nameComment))
 }
 
 func (spec *importSpec) addPathComment(cg ...*ast.CommentGroup) {
@@ -450,7 +455,6 @@ func (spec *importSpec) addPathComment(cg ...*ast.CommentGroup) {
 			spec.pos = p
 		}
 	}
-	sort.Sort(byCommentPos(spec.pathComment))
 }
 
 func (spec *importSpec) addComment(cg ...*ast.CommentGroup) {
@@ -461,7 +465,6 @@ func (spec *importSpec) addComment(cg ...*ast.CommentGroup) {
 			spec.end = p
 		}
 	}
-	sort.Sort(byCommentPos(spec.comment))
 }
 
 func (spec *importSpec) addFooter(cg ...*ast.CommentGroup) {
@@ -472,6 +475,13 @@ func (spec *importSpec) addFooter(cg ...*ast.CommentGroup) {
 			spec.end = p
 		}
 	}
+}
+
+func (spec *importSpec) sortComments() {
+	sort.Sort(byCommentPos(spec.doc))
+	sort.Sort(byCommentPos(spec.nameComment))
+	sort.Sort(byCommentPos(spec.pathComment))
+	sort.Sort(byCommentPos(spec.comment))
 	sort.Sort(byCommentPos(spec.footer))
 }
 
@@ -1030,6 +1040,7 @@ func (sf *SourceFile) squashImportDecls() error {
 	decls := make([]*importDecl, 0, len(cdecls)+1)
 	decls = append(decls, cdecls...)
 	if decl != nil {
+		decl.sortAll()
 		decl.dedupe()
 		decls = append(decls, decl)
 	}
