@@ -10,13 +10,11 @@ package imports
 
 import (
 	"bytes"
-	"fmt"
 	"go/ast"
 	"go/format"
 	"go/parser"
 	"go/printer"
 	"go/token"
-	"sort"
 	"strings"
 )
 
@@ -42,17 +40,18 @@ type Options struct {
 // Process implements golang.org/x/tools/imports.Process with explicit context in opt.Env.
 func Process(filename string, src []byte, opt *Options) (formatted []byte, err error) {
 	fileSet := token.NewFileSet()
-	file, adjust, err := parse(fileSet, filename, src, opt)
+	file, adjust, src, err := parse(fileSet, filename, src, opt)
 	if err != nil {
 		return nil, err
 	}
 
+	sf := newSourceFile(src, fileSet, file, opt)
 	if !opt.FormatOnly {
-		if err := fixImports(fileSet, file, filename, opt.Env); err != nil {
+		if err := fixImports(sf, filename); err != nil {
 			return nil, err
 		}
 	}
-	return formatFile(fileSet, file, src, adjust, opt)
+	return formatFile(sf, adjust)
 }
 
 // formatFile formats the file syntax tree.
@@ -61,17 +60,16 @@ func Process(filename string, src []byte, opt *Options) (formatted []byte, err e
 // If an adjust function is provided, it is called after formatting
 // with the original source (formatFile's src parameter) and the
 // formatted file, and returns the postpocessed result.
-func formatFile(fset *token.FileSet, file *ast.File, src []byte, adjust func(orig []byte, src []byte) []byte, opt *Options) ([]byte, error) {
-	sf := newSourceFile(src, fset, file, opt)
+func formatFile(sf *SourceFile, adjust func(orig []byte, src []byte) []byte) ([]byte, error) {
 	if err := sf.squashImportDecls(); err != nil {
 		return nil, err
 	}
 
 	printerMode := printer.UseSpaces
-	if opt.TabIndent {
+	if sf.options.TabIndent {
 		printerMode |= printer.TabIndent
 	}
-	printConfig := &printer.Config{Mode: printerMode, Tabwidth: opt.TabWidth}
+	printConfig := &printer.Config{Mode: printerMode, Tabwidth: sf.options.TabWidth}
 
 	var buf bytes.Buffer
 	if err := printConfig.Fprint(&buf, sf.fileSet, sf.astFile); err != nil {
@@ -79,7 +77,7 @@ func formatFile(fset *token.FileSet, file *ast.File, src []byte, adjust func(ori
 	}
 	out := buf.Bytes()
 	if adjust != nil {
-		out = adjust(src, out)
+		out = adjust(sf.src, out)
 	}
 
 	out, err := format.Source(out)
@@ -91,7 +89,7 @@ func formatFile(fset *token.FileSet, file *ast.File, src []byte, adjust func(ori
 
 // parse parses src, which was read from filename,
 // as a Go source file or statement list.
-func parse(fset *token.FileSet, filename string, src []byte, opt *Options) (*ast.File, func(orig, src []byte) []byte, error) {
+func parse(fset *token.FileSet, filename string, src []byte, opt *Options) (*ast.File, func(orig, src []byte) []byte, []byte, error) {
 	parserMode := parser.Mode(0)
 	if opt.Comments {
 		parserMode |= parser.ParseComments
@@ -103,13 +101,13 @@ func parse(fset *token.FileSet, filename string, src []byte, opt *Options) (*ast
 	// Try as whole source file.
 	file, err := parser.ParseFile(fset, filename, src, parserMode)
 	if err == nil {
-		return file, nil, nil
+		return file, nil, src, nil
 	}
 	// If the error is that the source file didn't begin with a
 	// package line and we accept fragmented input, fall through to
 	// try as a source fragment.  Stop and return on any other error.
 	if !opt.Fragment || !strings.Contains(err.Error(), "expected 'package'") {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	// If this is a declaration list, make it a source file
@@ -129,7 +127,7 @@ func parse(fset *token.FileSet, filename string, src []byte, opt *Options) (*ast
 		// If a main function exists, we will assume this is a main
 		// package and leave the file.
 		if containsMainFunc(file) {
-			return file, nil, nil
+			return file, nil, psrc, nil
 		}
 
 		adjust := func(orig, src []byte) []byte {
@@ -137,13 +135,13 @@ func parse(fset *token.FileSet, filename string, src []byte, opt *Options) (*ast
 			src = src[len(prefix):]
 			return matchSpace(orig, src)
 		}
-		return file, adjust, nil
+		return file, adjust, psrc, nil
 	}
 	// If the error is that the source file didn't begin with a
 	// declaration, fall through to try as a statement list.
 	// Stop and return on any other error.
 	if !strings.Contains(err.Error(), "expected declaration") {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	// If this is a statement list, make it a source file
@@ -164,11 +162,11 @@ func parse(fset *token.FileSet, filename string, src []byte, opt *Options) (*ast
 			src = bytes.Replace(src, []byte("\n\t"), []byte("\n"), -1)
 			return matchSpace(orig, src)
 		}
-		return file, adjust, nil
+		return file, adjust, fsrc, nil
 	}
 
 	// Failed, and out of options.
-	return nil, nil, err
+	return nil, nil, nil, err
 }
 
 // containsMainFunc checks if a file contains a function declaration with the

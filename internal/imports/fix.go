@@ -448,16 +448,16 @@ func (p *pass) importSpecName(imp *ImportInfo) string {
 }
 
 // apply will perform the fixes on f in order.
-func apply(fset *token.FileSet, f *ast.File, fixes []*ImportFix) {
+func apply(sf *SourceFile, fixes []*ImportFix) {
 	for _, fix := range fixes {
 		switch fix.FixType {
 		case DeleteImport:
-			astutil.DeleteNamedImport(fset, f, fix.StmtInfo.Name, fix.StmtInfo.ImportPath)
+			sf.deleteNamedImport(fix.StmtInfo.Name, fix.StmtInfo.ImportPath)
 		case AddImport:
-			astutil.AddNamedImport(fset, f, fix.StmtInfo.Name, fix.StmtInfo.ImportPath)
+			sf.addNamedImport(fix.StmtInfo.Name, fix.StmtInfo.ImportPath)
 		case SetImportName:
 			// Find the matching import path and change the name.
-			for _, spec := range f.Imports {
+			for _, spec := range sf.astFile.Imports {
 				path := strings.Trim(spec.Path.Value, `"`)
 				if path == fix.StmtInfo.ImportPath {
 					spec.Name = &ast.Ident{
@@ -518,12 +518,12 @@ func (p *pass) addCandidate(imp *ImportInfo, pkg *packageInfo) {
 // easily be extended by adding a file with an init function.
 var fixImports = fixImportsDefault
 
-func fixImportsDefault(fset *token.FileSet, f *ast.File, filename string, env *ProcessEnv) error {
-	fixes, err := getFixes(fset, f, filename, env)
+func fixImportsDefault(sf *SourceFile, filename string) error {
+	fixes, err := getFixes(sf.fileSet, sf.astFile, filename, sf.options.Env)
 	if err != nil {
 		return err
 	}
-	apply(fset, f, fixes)
+	apply(sf, fixes)
 	return err
 }
 

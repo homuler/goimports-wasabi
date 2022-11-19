@@ -145,19 +145,6 @@ func (decl *importDecl) isEmpty() bool {
 	return len(decl.specs) == 0 && !decl.hasComments()
 }
 
-func (decl *importDecl) convertToSingle() {
-	if len(decl.specs) != 1 {
-		panic("The import declaration cannot be converted to a single import declaration")
-	}
-	spec := decl.specs[0]
-	spec.addDoc(decl.doc...)
-	decl.doc = nil
-	spec.addFooter(decl.footer...)
-	decl.footer = nil
-	decl.node.Lparen = token.NoPos
-	decl.node.Rparen = token.NoPos
-}
-
 func (decl *importDecl) isCImportDecl() bool {
 	if len(decl.specs) != 1 {
 		return false
@@ -185,10 +172,8 @@ func (decl *importDecl) distillCImports() ([]*importDecl, *importDecl) {
 		return nil, decl
 	}
 
+	// NOTE: len(specs) can be zero
 	decl.specs = specs
-	if len(decl.specs) == 0 {
-		return cdecls, nil
-	}
 	return cdecls, decl
 }
 
@@ -1062,6 +1047,11 @@ func (sf *SourceFile) addNamedImport(name string, path string) {
 			continue
 		}
 		if decl.node.Lparen.IsValid() {
+			// Remove parentheses if the decl is empty
+			if len(decl.specs) == 0 && !decl.hasDeclComments() {
+				decl.node.Lparen = token.NoPos
+				decl.node.Rparen = token.NoPos
+			}
 			spec.pos = decl.end
 			spec.end = decl.end
 			decl.addSpec(spec)
@@ -1097,6 +1087,13 @@ func (sf *SourceFile) deleteNamedImport(name string, path string) {
 			if spec.name() == name && spec.path() == path {
 				copy(decl.specs[j:], decl.specs[j+1:])
 				decl.specs = decl.specs[:len(decl.specs)-1]
+
+				// e.g. import "math" -> import ()
+				if len(decl.specs) == 0 && !decl.hasDeclComments() {
+					decl.node.Lparen = spec.pos
+					decl.node.Rparen = spec.end
+				}
+				j--
 			}
 		}
 	}

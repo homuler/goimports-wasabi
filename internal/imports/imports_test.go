@@ -910,7 +910,7 @@ import (
 			description: "Extract import C declarations",
 			src: `package main
 
-// doc comment (this will be ignored)
+// doc comment
 import (
 	// #include <stdio.h>
 	"C"// line comment for C (1)
@@ -932,7 +932,7 @@ import(/*path comment*/"C"/*line comment*/)
 // unrelated comments`,
 			f: func(t *testing.T, sf *SourceFile) {
 				decls := sf.importDecls
-				assert.Len(t, decls, 4)
+				assert.Len(t, decls, 5)
 
 				runImportDeclTest(t, declValue{
 					specs: []specValue{
@@ -978,6 +978,11 @@ import(/*path comment*/"C"/*line comment*/)
 					},
 					doc: [][]string{{"// #include <math.h>"}},
 				}, decls[3])
+
+				runImportDeclTest(t, declValue{
+					specs: []specValue{},
+					doc:   [][]string{{"// doc comment"}},
+				}, decls[4])
 			},
 		},
 		{
@@ -1050,7 +1055,7 @@ import (
 							group: StdLib,
 						},
 					},
-					doc: [][]string{{"// doc comment", "// #include <string.h> (this line is not a comment for C)"}},
+					doc: [][]string{{"// doc comment"}, {"// #include <string.h> (this line is not a comment for C)"}},
 				}, decls[3])
 			},
 		},
