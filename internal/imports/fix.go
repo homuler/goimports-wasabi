@@ -417,16 +417,7 @@ func apply(sf *SourceFile, fixes []*ImportFix) {
 		case AddImport:
 			sf.addNamedImport(fix.StmtInfo.Name, fix.StmtInfo.ImportPath)
 		case SetImportName:
-			// Find the matching import path and change the name.
-			for _, spec := range sf.astFile.Imports {
-				path := strings.Trim(spec.Path.Value, `"`)
-				if path == fix.StmtInfo.ImportPath {
-					spec.Name = &ast.Ident{
-						Name:    fix.StmtInfo.Name,
-						NamePos: spec.Pos(),
-					}
-				}
-			}
+			sf.setImportName(fix.StmtInfo.Name, fix.StmtInfo.ImportPath)
 		}
 	}
 }

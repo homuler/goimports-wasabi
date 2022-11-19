@@ -974,7 +974,7 @@ func (sf *SourceFile) squashImportDecls() error {
 	return sf.sync()
 }
 
-func (sf *SourceFile) addNamedImport(name string, path string) {
+func (sf *SourceFile) addNamedImport(name, path string) {
 	newImport := &ast.ImportSpec{
 		Path: &ast.BasicLit{
 			Kind:  token.STRING,
@@ -1024,7 +1024,7 @@ func (sf *SourceFile) addNamedImport(name string, path string) {
 	sf.importDecls = append(sf.importDecls, newSingleImportDecl(spec))
 }
 
-func (sf *SourceFile) deleteNamedImport(name string, path string) {
+func (sf *SourceFile) deleteNamedImport(name, path string) {
 	for _, decl := range sf.importDecls {
 		for j := 0; j < len(decl.specs); j++ {
 			spec := decl.specs[j]
@@ -1038,6 +1038,20 @@ func (sf *SourceFile) deleteNamedImport(name string, path string) {
 					decl.node.Rparen = spec.end
 				}
 				j--
+			}
+		}
+	}
+}
+
+// setImportName finds the matching import path and change the name.
+func (sf *SourceFile) setImportName(name, path string) {
+	for _, decl := range sf.importDecls {
+		for _, spec := range decl.specs {
+			if spec.path() == path {
+				spec.node.Name = &ast.Ident{
+					Name:    name,
+					NamePos: spec.node.Pos(),
+				}
 			}
 		}
 	}
