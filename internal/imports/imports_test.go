@@ -168,8 +168,8 @@ func runImportDeclTest(t *testing.T, expected declValue, actual *importDecl) {
 		t.Run("Bottom", func(t *testing.T) { assertCommentGroups(t, expected.bottom, actual.bottom) })
 		t.Run("PostRparen", func(t *testing.T) { assertCommentGroups(t, expected.postRparen, actual.postRparen) })
 		t.Run("StdLibDoc", func(t *testing.T) { assertCommentGroups(t, expected.stdLibDoc, actual.stdLibDoc) })
-		t.Run("ForeignDoc", func(t *testing.T) { assertCommentGroups(t, expected.foreignDoc, actual.foreignDoc) })
-		t.Run("LocalDoc", func(t *testing.T) { assertCommentGroups(t, expected.localDoc, actual.localDoc) })
+		t.Run("ForeignDoc", func(t *testing.T) { assertCommentGroups(t, expected.foreignDoc, actual.foreignLibDoc) })
+		t.Run("LocalDoc", func(t *testing.T) { assertCommentGroups(t, expected.localDoc, actual.localLibDoc) })
 		t.Run("Footer", func(t *testing.T) { assertCommentGroups(t, expected.footer, actual.footer) })
 	})
 }
@@ -297,7 +297,7 @@ import "local/bar"
 					specs: []specValue{
 						{
 							path:        "github.com/homuler/foo",
-							group:       Foreign,
+							group:       ForeignLib,
 							pathComment: [][]string{{"/*path comment for foo\n*/"}},
 							comment:     [][]string{{"// line comment for foo"}},
 						},
@@ -338,7 +338,7 @@ import "local/bar"
 					specs: []specValue{
 						{
 							path:  "local/bar",
-							group: Local,
+							group: LocalLib,
 						},
 					},
 				}, decls[6])
@@ -455,15 +455,15 @@ import
 						},
 						{
 							path:  "github.com/homuler/foo",
-							group: Foreign,
+							group: ForeignLib,
 						},
 						{
 							path:  "somehost.com/bar",
-							group: Foreign,
+							group: ForeignLib,
 						},
 						{
 							path:  "local/buz",
-							group: Local,
+							group: LocalLib,
 						},
 					},
 					preLparen:  [][]string{{"/*prelparen comment*/"}},
@@ -800,11 +800,11 @@ import/*prelparen comment (2)*/(// postlparen comment (2)
 						},
 						{
 							path:  "github.com/homuler/foo",
-							group: Foreign,
+							group: ForeignLib,
 						},
 						{
 							path:  "local/buz",
-							group: Local,
+							group: LocalLib,
 						},
 					},
 					header:     [][]string{{"// header comment"}},

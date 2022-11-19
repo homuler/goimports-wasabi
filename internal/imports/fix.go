@@ -27,46 +27,7 @@ import (
 
 	"github.com/homuler/goimports/internal/gocommand"
 	"github.com/homuler/goimports/internal/gopathwalk"
-	"golang.org/x/tools/go/ast/astutil"
 )
-
-// importToGroup is a list of functions which map from an import path to
-// a group number.
-var importToGroup = []func(localPrefix, importPath string) (num int, ok bool){
-	func(localPrefix, importPath string) (num int, ok bool) {
-		if localPrefix == "" {
-			return
-		}
-		for _, p := range strings.Split(localPrefix, ",") {
-			if strings.HasPrefix(importPath, p) || strings.TrimSuffix(p, "/") == importPath {
-				return 3, true
-			}
-		}
-		return
-	},
-	func(_, importPath string) (num int, ok bool) {
-		if strings.HasPrefix(importPath, "appengine") {
-			return 2, true
-		}
-		return
-	},
-	func(_, importPath string) (num int, ok bool) {
-		firstComponent := strings.Split(importPath, "/")[0]
-		if strings.Contains(firstComponent, ".") {
-			return 1, true
-		}
-		return
-	},
-}
-
-func importGroup(localPrefix, importPath string) int {
-	for _, fn := range importToGroup {
-		if n, ok := fn(localPrefix, importPath); ok {
-			return n
-		}
-	}
-	return 0
-}
 
 type ImportFixType int
 

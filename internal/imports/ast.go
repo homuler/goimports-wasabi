@@ -43,8 +43,9 @@ type SpecGroup int
 const (
 	NoGroup SpecGroup = iota
 	StdLib
-	Foreign
-	Local
+	AppEngine
+	ForeignLib
+	LocalLib
 )
 
 func specGroupFor(s *ast.ImportSpec, localPrefix string) SpecGroup {
@@ -53,13 +54,16 @@ func specGroupFor(s *ast.ImportSpec, localPrefix string) SpecGroup {
 	if localPrefix != "" {
 		for _, p := range strings.Split(localPrefix, ",") {
 			if strings.HasPrefix(path, p) || strings.TrimSuffix(p, "/") == path {
-				return Local
+				return LocalLib
 			}
 		}
 	}
 	firstComponent := strings.Split(path, "/")[0]
 	if strings.Contains(firstComponent, ".") {
-		return Foreign
+		return ForeignLib
+	}
+	if strings.HasPrefix(path, "appengine") {
+		return AppEngine
 	}
 	return StdLib
 }
@@ -95,16 +99,17 @@ type importDecl struct {
 	node  *ast.GenDecl
 	specs []*importSpec
 
-	header     []*ast.CommentGroup
-	doc        []*ast.CommentGroup
-	preLparen  []*ast.CommentGroup
-	postLparen []*ast.CommentGroup
-	bottom     []*ast.CommentGroup
-	postRparen []*ast.CommentGroup
-	stdLibDoc  []*ast.CommentGroup
-	foreignDoc []*ast.CommentGroup
-	localDoc   []*ast.CommentGroup
-	footer     []*ast.CommentGroup
+	header        []*ast.CommentGroup
+	doc           []*ast.CommentGroup
+	preLparen     []*ast.CommentGroup
+	postLparen    []*ast.CommentGroup
+	bottom        []*ast.CommentGroup
+	postRparen    []*ast.CommentGroup
+	stdLibDoc     []*ast.CommentGroup
+	appEngineDoc  []*ast.CommentGroup
+	foreignLibDoc []*ast.CommentGroup
+	localLibDoc   []*ast.CommentGroup
+	footer        []*ast.CommentGroup
 
 	pos token.Pos
 	end token.Pos
@@ -133,8 +138,9 @@ func (decl *importDecl) hasDeclComments() bool {
 		len(decl.bottom) != 0 ||
 		len(decl.postRparen) != 0 ||
 		len(decl.stdLibDoc) != 0 ||
-		len(decl.foreignDoc) != 0 ||
-		len(decl.localDoc) != 0
+		len(decl.appEngineDoc) != 0 ||
+		len(decl.foreignLibDoc) != 0 ||
+		len(decl.localLibDoc) != 0
 }
 
 func (decl *importDecl) hasComments() bool {
@@ -227,14 +233,19 @@ func (decl *importDecl) addStdLibDoc(cg ...*ast.CommentGroup) {
 	sort.Sort(byCommentPos(decl.stdLibDoc))
 }
 
-func (decl *importDecl) addForeignDoc(cg ...*ast.CommentGroup) {
-	decl.foreignDoc = append(decl.foreignDoc, cg...)
-	sort.Sort(byCommentPos(decl.foreignDoc))
+func (decl *importDecl) addAppEngineDoc(cg ...*ast.CommentGroup) {
+	decl.appEngineDoc = append(decl.appEngineDoc, cg...)
+	sort.Sort(byCommentPos(decl.appEngineDoc))
 }
 
-func (decl *importDecl) addLocalDoc(cg ...*ast.CommentGroup) {
-	decl.localDoc = append(decl.localDoc, cg...)
-	sort.Sort(byCommentPos(decl.localDoc))
+func (decl *importDecl) addForeignLibDoc(cg ...*ast.CommentGroup) {
+	decl.foreignLibDoc = append(decl.foreignLibDoc, cg...)
+	sort.Sort(byCommentPos(decl.foreignLibDoc))
+}
+
+func (decl *importDecl) addLocalLibDoc(cg ...*ast.CommentGroup) {
+	decl.localLibDoc = append(decl.localLibDoc, cg...)
+	sort.Sort(byCommentPos(decl.localLibDoc))
 }
 
 func (decl *importDecl) addBottom(cg ...*ast.CommentGroup) {
@@ -268,10 +279,12 @@ func (decl *importDecl) addGroupDoc(c *ast.CommentGroup, g SpecGroup) {
 	switch g {
 	case StdLib:
 		decl.addStdLibDoc(c)
-	case Foreign:
-		decl.addForeignDoc(c)
-	case Local:
-		decl.addLocalDoc(c)
+	case AppEngine:
+		decl.addAppEngineDoc(c)
+	case ForeignLib:
+		decl.addForeignLibDoc(c)
+	case LocalLib:
+		decl.addLocalLibDoc(c)
 	}
 }
 
@@ -286,8 +299,9 @@ func (x *importDecl) merge(y *importDecl) {
 	x.addPreLparen(y.preLparen...)
 	x.addPostLparen(y.postLparen...)
 	x.addStdLibDoc(y.stdLibDoc...)
-	x.addForeignDoc(y.foreignDoc...)
-	x.addLocalDoc(y.localDoc...)
+	x.addAppEngineDoc(y.appEngineDoc...)
+	x.addForeignLibDoc(y.foreignLibDoc...)
+	x.addLocalLibDoc(y.localLibDoc...)
 	x.addBottom(y.bottom...)
 	x.addPostRparen(y.postRparen...)
 	x.addFooter(y.footer...)
@@ -707,18 +721,23 @@ func (sw *sourceWriter) writeImportDecl(decl *importDecl) {
 				if len(decl.postLparen) > 0 {
 					sw.writeNewline()
 				}
-				if decl.stdLibDoc != nil {
+				if len(decl.stdLibDoc) > 0 {
 					sw.writeFloatingComments(decl.stdLibDoc)
 				}
-			case Foreign:
+			case AppEngine:
 				sw.writeNewline()
-				if decl.foreignDoc != nil {
-					sw.writeFloatingComments(decl.foreignDoc)
+				if len(decl.appEngineDoc) > 0 {
+					sw.writeFloatingComments(decl.appEngineDoc)
 				}
-			case Local:
+			case ForeignLib:
 				sw.writeNewline()
-				if decl.localDoc != nil {
-					sw.writeFloatingComments(decl.localDoc)
+				if len(decl.foreignLibDoc) > 0 {
+					sw.writeFloatingComments(decl.foreignLibDoc)
+				}
+			case LocalLib:
+				sw.writeNewline()
+				if len(decl.localLibDoc) > 0 {
+					sw.writeFloatingComments(decl.localLibDoc)
 				}
 			}
 		}
