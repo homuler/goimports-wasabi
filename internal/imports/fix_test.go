@@ -1300,8 +1300,7 @@ func bar() {
 fmt.Println("hi")
 }
 `,
-			out: `
-import "fmt"
+			out: `import "fmt"
 
 func bar() {
 	fmt.Println("hi")

@@ -878,7 +878,6 @@ func newSourceFile(src []byte, fileSet *token.FileSet, astFile *ast.File, option
 // This will change astFile and tokenFile.
 func (sf *SourceFile) sync() error {
 	tokenFile := sf.tokenFile
-	packageEnd := sf.astFile.Name.End()
 	startPos := tokenFile.Pos(tokenFile.Size())
 	endPos := token.NoPos
 
@@ -894,16 +893,6 @@ func (sf *SourceFile) sync() error {
 	// no import declarations
 	if endPos < startPos {
 		endPos = startPos
-	}
-
-	// fixImports may insert import declarations at pos 1 and can cause a compile error.
-	// If the character at packageEnd + 1 is not a newline nor a semicolon, it can fail to output a correct code.
-	// TODO: fix fixImports
-	if startPos < packageEnd {
-		startPos = packageEnd + 1
-	}
-	if endPos < packageEnd {
-		endPos = packageEnd + 1
 	}
 
 	start := tokenFile.Offset(startPos)
