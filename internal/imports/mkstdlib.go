@@ -16,7 +16,6 @@ import (
 	"fmt"
 	"go/format"
 	"io"
-	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -118,7 +117,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	err = ioutil.WriteFile("zstdlib.go", fmtbuf, 0666)
+	err = os.WriteFile("zstdlib.go", fmtbuf, 0666)
 	if err != nil {
 		log.Fatal(err)
 	}
