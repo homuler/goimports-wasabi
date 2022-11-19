@@ -28,7 +28,7 @@ type Options struct {
 
 	Fragment       bool // Accept fragment of a source file (no package statement)
 	AllErrors      bool // Report all errors (not just the first 10 on different lines)
-	ReconstructAST bool // Reconstruct AST after rewriting the source code
+	ReconstructAST bool // Reconstruct AST after rewriting the source code (for testing purposes)
 
 	Comments  bool // Print comments (true if nil *Options provided)
 	TabIndent bool // Use tabs for indent (true if nil *Options provided)

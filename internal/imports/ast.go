@@ -929,10 +929,11 @@ func (sf *SourceFile) sync() error {
 		sw.delete()
 	}
 
-	if sw.pos > endPos || sf.options.ReconstructAST {
+	sw.writeByte(sf.src[end:]...)
+	sf.src = sw.output
+
+	if sf.options.ReconstructAST {
 		// If the total length of import declarations get larger than the original, reconstruct AST to correct other tokens' positions.
-		sw.writeByte(sf.src[end:]...)
-		sf.src = sw.output
 		sf.fileSet = token.NewFileSet()
 		file, err := parseFile(sf.fileSet, sf.tokenFile.Name(), sf.src, sf.options)
 
@@ -942,87 +943,6 @@ func (sf *SourceFile) sync() error {
 		}
 		sf.astFile = file
 		sf.tokenFile.SetLinesForContent(sf.src)
-		return nil
-	}
-
-	for sw.pos < endPos {
-		sw.writeNewline()
-	}
-	sw.writeByte(sf.src[end:]...)
-	sf.src = sw.output
-	sf.tokenFile.SetLinesForContent(sf.src)
-
-	// Remove merged declarations and comments from AST.
-	newDecls := make([]ast.Decl, 0, len(sf.astFile.Decls))
-	mergedComments := make([]*ast.CommentGroup, 0)
-
-	for _, decl := range sf.importDecls {
-		if decl.isEmpty() {
-			continue
-		}
-
-		if len(decl.doc) > 0 {
-			decl.node.Doc = nil // reset Doc to sort comments
-			for _, doc := range decl.doc {
-				if decl.node.Doc == nil {
-					decl.node.Doc = doc
-					continue
-				}
-				decl.node.Doc.List = append(decl.node.Doc.List, doc.List...)
-				mergedComments = append(mergedComments, doc)
-			}
-			decl.doc = []*ast.CommentGroup{decl.node.Doc}
-		}
-
-		decl.node.Specs = nil // reset Specs to sort specs
-		for _, spec := range decl.specs {
-			if len(spec.doc) > 0 {
-				spec.node.Doc = nil // reset Doc to sort comments
-				for _, doc := range spec.doc {
-					if spec.node.Doc == nil {
-						spec.node.Doc = doc
-						continue
-					}
-					spec.node.Doc.List = append(spec.node.Doc.List, doc.List...)
-					mergedComments = append(mergedComments, doc)
-				}
-				spec.doc = []*ast.CommentGroup{spec.node.Doc}
-			}
-
-			if len(spec.comment) > 0 {
-				spec.node.Comment = nil // reset Comment to sort comments
-				for _, doc := range spec.comment {
-					if spec.node.Comment == nil {
-						spec.node.Comment = doc
-						continue
-					}
-					spec.node.Comment.List = append(spec.node.Comment.List, doc.List...)
-					mergedComments = append(mergedComments, doc)
-				}
-				spec.comment = []*ast.CommentGroup{spec.node.Comment}
-			}
-			decl.node.Specs = append(decl.node.Specs, spec.node)
-		}
-		newDecls = append(newDecls, decl.node)
-	}
-
-	for _, d := range sf.astFile.Decls {
-		if _, ok := astImportDecl(d); ok {
-			continue
-		}
-		newDecls = append(newDecls, d)
-	}
-	sf.astFile.Decls = newDecls
-
-	sort.Sort(byCommentPos(sf.astFile.Comments))
-	if len(mergedComments) > 0 {
-		cindex := 0
-		for _, c := range mergedComments {
-			for sf.astFile.Comments[cindex] != c {
-				cindex++
-			}
-			sf.astFile.Comments = append(sf.astFile.Comments[:cindex], sf.astFile.Comments[cindex+1:]...)
-		}
 	}
 
 	return nil
