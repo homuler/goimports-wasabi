@@ -9,7 +9,7 @@ import /* prelparen comment (1) */ ( // postlparen comment
 	/* path comment for fmt (1) */ "fmt" // comment for fmt (1)
 	// trailing comment for fmt (1)
 
-  // foreign doc comment (1)
+	// foreign doc comment (1)
 
 	// doc comment for foo
 	"github.com/homuler/foo" // comment for foo

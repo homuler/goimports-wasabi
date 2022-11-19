@@ -13,7 +13,6 @@ import (
 	"go/ast"
 	"go/format"
 	"go/parser"
-	"go/printer"
 	"go/token"
 	"strings"
 )
@@ -62,26 +61,17 @@ func Process(filename string, src []byte, opt *Options) (formatted []byte, err e
 // with the original source (formatFile's src parameter) and the
 // formatted file, and returns the postpocessed result.
 func formatFile(sf *SourceFile, adjust func(orig []byte, src []byte) []byte) ([]byte, error) {
+	orig := sf.src
 	if err := sf.squashImportDecls(); err != nil {
 		return nil, err
 	}
 
-	printerMode := printer.UseSpaces
-	if sf.options.TabIndent {
-		printerMode |= printer.TabIndent
-	}
-	printConfig := &printer.Config{Mode: printerMode, Tabwidth: sf.options.TabWidth}
-
-	var buf bytes.Buffer
-	if err := printConfig.Fprint(&buf, sf.fileSet, sf.astFile); err != nil {
-		return nil, err
-	}
-	out := buf.Bytes()
+	src := sf.src
 	if adjust != nil {
-		out = adjust(sf.src, out)
+		src = adjust(orig, sf.src)
 	}
 
-	out, err := format.Source(out)
+	out, err := format.Source(src)
 	if err != nil {
 		return nil, err
 	}

@@ -19,7 +19,7 @@ import /* prelparen comment (1) */ /* prelparen comment (2) */ ( // postlparen c
 
 	// doc comment for fmt
 	/* path comment for fmt (1) */ /* path comment for fmt (2) */
-	"fmt"                          // comment for fmt (1)
+	"fmt" // comment for fmt (1)
 	/* comment for fmt (2)
 	 */ // comment for fmt (3)
 	// trailing comment for fmt (1)

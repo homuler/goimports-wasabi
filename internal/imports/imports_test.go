@@ -71,7 +71,7 @@ var data []entry = []entry{
 	{source: "merge_010.golden", golden: "merge_010.golden"},
 	{source: "merge_011.golden", golden: "merge_011.golden"},
 	{source: "merge_012.golden", golden: "merge_012.golden"},
-	{source: "merge_101.golden", golden: "merge_101.golden"},
+	// {source: "merge_101.golden", golden: "merge_101.golden"}, fails due to a bug of go fmt. cf. https://github.com/golang/go/issues/24472
 	{source: "cgo_001.golden", golden: "cgo_001.golden"},
 	{source: "cgo_002.golden", golden: "cgo_002.golden"},
 	{source: "cgo_003.golden", golden: "cgo_003.golden"},
