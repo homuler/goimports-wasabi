@@ -5,7 +5,7 @@ import f "fmt"
 import (
 	"context"
 	"fmt"
-  "local/foo"
+	"local/foo"
 )
 
 func main() {

@@ -56,6 +56,9 @@ var data []entry = []entry{
 	{source: "cgo_008.input", golden: "cgo_008.golden"},
 	{source: "cgo_009.input", golden: "cgo_009.golden"},
 	{source: "format_001.input", golden: "format_001.input"},
+	{source: "format_002.input", golden: "format_002.input"},
+	{source: "format_003.input", golden: "format_003.input"},
+	{source: "format_004.input", golden: "format_004.input"},
 	{source: "merge_001.golden", golden: "merge_001.golden"},
 	{source: "merge_002.golden", golden: "merge_002.golden"},
 	{source: "merge_003.golden", golden: "merge_003.golden"},
@@ -95,9 +98,11 @@ func TestProcess(t *testing.T) {
 	for _, e := range data {
 		source := filepath.Join(datadir, e.source)
 		golden := filepath.Join(datadir, e.golden)
-		if err := checkDiff(t, source, golden); err != nil {
-			t.Error(err)
-		}
+		t.Run(source, func(t *testing.T) {
+			if err := checkDiff(t, source, golden); err != nil {
+				t.Error(err)
+			}
+		})
 	}
 }
 
@@ -205,7 +210,7 @@ func extractComments(cgs []*ast.CommentGroup) [][]string {
 func TestNewSourceFile(t *testing.T) {
 	type testcase struct {
 		src string
-		f   func(t *testing.T, name string, sf *sourceFile)
+		f   func(t *testing.T, name string, sf *SourceFile)
 	}
 
 	cases := []testcase{
@@ -245,7 +250,7 @@ for errors (1)*//*comment for errors (2)*/// comment for errors (3)
 import "local/bar"
 
 // unrelated comments`,
-			f: func(t *testing.T, name string, sf *sourceFile) {
+			f: func(t *testing.T, name string, sf *SourceFile) {
 				decls := sf.importDecls
 				assert.Len(t, decls, 7)
 
@@ -391,7 +396,7 @@ import
 // footer comment
 
 // unrelated comments`,
-			f: func(t *testing.T, name string, sf *sourceFile) {
+			f: func(t *testing.T, name string, sf *SourceFile) {
 				decls := sf.importDecls
 				assert.Len(t, decls, 3)
 
@@ -493,7 +498,7 @@ func TestSquashImportDecls(t *testing.T) {
 	type testcase struct {
 		description string
 		src         string
-		f           func(t *testing.T, sf *sourceFile)
+		f           func(t *testing.T, sf *SourceFile)
 	}
 
 	cases := []testcase{
@@ -506,7 +511,7 @@ import/*name comment for f*/f/*path comment for fmt*/"fmt"// line comment for fm
 // footer comment for fmt
 
 // unrelated comments`,
-			f: func(t *testing.T, sf *sourceFile) {
+			f: func(t *testing.T, sf *SourceFile) {
 				decls := sf.importDecls
 				assert.Len(t, decls, 1)
 
@@ -539,7 +544,7 @@ import/*name comment for f (2)*/f/*path comment for fmt (2)*/"fmt"// line commen
 // footer comment for fmt (2)
 
 // unrelated comments`,
-			f: func(t *testing.T, sf *sourceFile) {
+			f: func(t *testing.T, sf *SourceFile) {
 				decls := sf.importDecls
 				assert.Len(t, decls, 1)
 
@@ -590,7 +595,7 @@ import/*path comment for fmt (2)*/"fmt"// line comment for fmt (2)
 
 // unrelated comments
 `,
-			f: func(t *testing.T, sf *sourceFile) {
+			f: func(t *testing.T, sf *SourceFile) {
 				decls := sf.importDecls
 				assert.Len(t, decls, 1)
 
@@ -652,7 +657,7 @@ import/*prelparen comment*/(// postlparen comment
 // footer comment
 
 // unrelated comments`,
-			f: func(t *testing.T, sf *sourceFile) {
+			f: func(t *testing.T, sf *SourceFile) {
 				decls := sf.importDecls
 				assert.Len(t, decls, 1)
 
@@ -706,7 +711,7 @@ import/*path comment for fmt (1)*/"fmt"// line comment for fmt (1)
 
 
 // unrelated comments`,
-			f: func(t *testing.T, sf *sourceFile) {
+			f: func(t *testing.T, sf *SourceFile) {
 				decls := sf.importDecls
 				assert.Len(t, decls, 1)
 
@@ -774,7 +779,7 @@ import/*prelparen comment (2)*/(// postlparen comment (2)
 // footer comment (2)
 
 // unrelated comments`,
-			f: func(t *testing.T, sf *sourceFile) {
+			f: func(t *testing.T, sf *SourceFile) {
 				decls := sf.importDecls
 				assert.Len(t, decls, 1)
 
@@ -845,7 +850,7 @@ import (
 )
 
 // unrelated comments`,
-			f: func(t *testing.T, sf *sourceFile) {
+			f: func(t *testing.T, sf *SourceFile) {
 				decls := sf.importDecls
 				assert.Len(t, decls, 4)
 
@@ -925,7 +930,7 @@ import (
 import(/*path comment*/"C"/*line comment*/)
 
 // unrelated comments`,
-			f: func(t *testing.T, sf *sourceFile) {
+			f: func(t *testing.T, sf *SourceFile) {
 				decls := sf.importDecls
 				assert.Len(t, decls, 4)
 
@@ -998,7 +1003,7 @@ import (
 )
 
 // unrelated comments`,
-			f: func(t *testing.T, sf *sourceFile) {
+			f: func(t *testing.T, sf *SourceFile) {
 				decls := sf.importDecls
 				assert.Len(t, decls, 4)
 

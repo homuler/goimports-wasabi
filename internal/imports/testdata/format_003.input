@@ -1,0 +1,6 @@
+package foo
+
+import (
+	_ "image/jpeg"
+	_ "image/png"
+)

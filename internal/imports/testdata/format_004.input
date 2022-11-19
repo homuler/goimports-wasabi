@@ -1,0 +1,5 @@
+package foo
+
+import "html/template"
+
+func f() { t = template.New("sometemplate") }
