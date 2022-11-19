@@ -818,14 +818,19 @@ func (sw *sourceWriter) writeComments(docs []*ast.CommentGroup) {
 }
 
 func (sw *sourceWriter) writeInlineComments(docs []*ast.CommentGroup) {
+	shouldInsertNewline := false
+
 	for _, doc := range docs {
-		if doc.List == nil {
-			continue
-		}
 		for i, c := range doc.List {
 			c.Slash = sw.pos
+			if shouldInsertNewline {
+				sw.writeNewline()
+				shouldInsertNewline = false
+			}
 			sw.writeString(c.Text)
-			if i < len(doc.List)-1 {
+			if c.Text[1] == '/' {
+				shouldInsertNewline = true
+			} else if i < len(doc.List)-1 {
 				sw.writeByte(' ')
 			}
 		}
