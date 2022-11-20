@@ -574,7 +574,7 @@ func (idr *importDeclReader) readNext() (*importDecl, bool) {
 	for j, s := range d.Specs {
 		spec := newImportSpec(s, idr.localPrefix)
 		if spec == nil {
-			panic("Failed to read ImportSpec")
+			return nil, false
 		}
 
 		if decl.node.Lparen.IsValid() {
