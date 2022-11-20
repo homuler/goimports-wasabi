@@ -22,3 +22,11 @@ jobs:
           go-version: ${{ matrix.go }}
       - run: |
           go test -cover ./...
+      - name: Lint with goimports-wasabi
+        run: |
+          go run . -w .
+          if [[ $(git status --porcelain) ]]; then
+            git diff
+            exit 1
+          fi
+        shell: bash
