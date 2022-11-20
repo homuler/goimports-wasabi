@@ -558,7 +558,7 @@ func (idr *importDeclReader) readNext() (*importDecl, bool) {
 		}
 
 		lparenLine := idr.line(decl.node.Lparen)
-		firstSpecLine := tokenFile.LineCount()
+		firstSpecLine := tokenFile.LineCount() + 1
 		if len(d.Specs) > 0 {
 			firstSpecLine = idr.line(d.Specs[0].Pos())
 		}
@@ -719,33 +719,32 @@ func (sw *sourceWriter) writeImportDecl(decl *importDecl) {
 	decl.node.Lparen = sw.pos
 	sw.writeString(token.LPAREN.String())
 	sw.writeInlineComments(decl.postLparen)
-	sw.writeNewline()
+	if len(decl.specs) > 0 || len(decl.bottom) > 0 {
+		sw.writeNewline()
+	}
 
 	sg := NoGroup
 	for _, spec := range decl.specs {
 		if spec.group != sg {
+			if sg != NoGroup || len(decl.postLparen) > 0 {
+				sw.writeNewline()
+			}
 			sg = spec.group
 
 			switch sg {
 			case StdLib:
-				if len(decl.postLparen) > 0 {
-					sw.writeNewline()
-				}
 				if len(decl.stdLibDoc) > 0 {
 					sw.writeFloatingComments(decl.stdLibDoc)
 				}
 			case AppEngine:
-				sw.writeNewline()
 				if len(decl.appEngineDoc) > 0 {
 					sw.writeFloatingComments(decl.appEngineDoc)
 				}
 			case ForeignLib:
-				sw.writeNewline()
 				if len(decl.foreignLibDoc) > 0 {
 					sw.writeFloatingComments(decl.foreignLibDoc)
 				}
 			case LocalLib:
-				sw.writeNewline()
 				if len(decl.localLibDoc) > 0 {
 					sw.writeFloatingComments(decl.localLibDoc)
 				}

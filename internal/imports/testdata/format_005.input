@@ -1,0 +1,7 @@
+package foo
+
+import (
+	// foreign doc comment
+
+	_ "github.com/homuler/foo"
+)

@@ -45,6 +45,8 @@ var data []entry = []entry{
 	{source: "merge_010.input", golden: "merge_010.golden"},
 	{source: "merge_011.input", golden: "merge_011.golden"},
 	{source: "merge_012.input", golden: "merge_012.golden"},
+	{source: "merge_013.input", golden: "merge_013.golden"},
+	{source: "merge_014.input", golden: "merge_014.golden"},
 	{source: "merge_101.input", golden: "merge_101.golden"},
 	{source: "cgo_001.input", golden: "cgo_001.golden"},
 	{source: "cgo_002.input", golden: "cgo_002.golden"},
@@ -59,6 +61,7 @@ var data []entry = []entry{
 	{source: "format_002.input", golden: "format_002.input"},
 	{source: "format_003.input", golden: "format_003.input"},
 	{source: "format_004.input", golden: "format_004.input"},
+	{source: "format_005.input", golden: "format_005.input"},
 	{source: "merge_001.golden", golden: "merge_001.golden"},
 	{source: "merge_002.golden", golden: "merge_002.golden"},
 	{source: "merge_003.golden", golden: "merge_003.golden"},
@@ -71,6 +74,8 @@ var data []entry = []entry{
 	{source: "merge_010.golden", golden: "merge_010.golden"},
 	{source: "merge_011.golden", golden: "merge_011.golden"},
 	{source: "merge_012.golden", golden: "merge_012.golden"},
+	{source: "merge_013.golden", golden: "merge_013.golden"},
+	{source: "merge_014.golden", golden: "merge_014.golden"},
 	// {source: "merge_101.golden", golden: "merge_101.golden"}, fails due to a bug of go fmt. cf. https://github.com/golang/go/issues/24472
 	{source: "cgo_001.golden", golden: "cgo_001.golden"},
 	{source: "cgo_002.golden", golden: "cgo_002.golden"},
@@ -236,6 +241,47 @@ func TestNewSourceFile(t *testing.T) {
 	}
 
 	cases := []testcase{
+		{
+			src: `// parse empty import declarations
+package main
+
+// doc comment
+import()
+
+import(/*postlparen comment*/)
+
+// header comment
+
+import/*prelparen comment*/(// postlparen comment
+	// bottom comment
+)// postrparen comment
+// footer comment
+
+// unrelated comments`,
+			f: func(t *testing.T, name string, sf *SourceFile) {
+				decls := sf.importDecls
+				assert.Len(t, decls, 3)
+
+				runImportDeclTest(t, declValue{
+					specs: []specValue{},
+					doc:   [][]string{{"// doc comment"}},
+				}, decls[0])
+
+				runImportDeclTest(t, declValue{
+					specs:      []specValue{},
+					postLparen: [][]string{{"/*postlparen comment*/"}},
+				}, decls[1])
+
+				runImportDeclTest(t, declValue{
+					header:     [][]string{{"// header comment"}},
+					preLparen:  [][]string{{"/*prelparen comment*/"}},
+					postLparen: [][]string{{"// postlparen comment"}},
+					postRparen: [][]string{{"// postrparen comment"}},
+					bottom:     [][]string{{"// bottom comment"}},
+					footer:     [][]string{{"// footer comment"}},
+				}, decls[2])
+			},
+		},
 		{
 			src: `// parse single import declarations
 package main
@@ -790,14 +836,14 @@ import/*prelparen comment (1)*/(// postlparen comment (1)
 
 // doc comment (2)
 import/*prelparen comment (2)*/(// postlparen comment (2)
+	// foreign comment
+
+	"github.com/homuler/foo"
+
 	// stdlib comment (2)
 
 	/*name comment for f (2)*/f/*path comment for fmt (2)*/"fmt"// line comment for fmt (2)
 	// footer comment for fmt (2)
-
-	// foreign comment
-
-	"github.com/homuler/foo"
 
 	// bottom comment (2)
 )// postrparen comment (2)

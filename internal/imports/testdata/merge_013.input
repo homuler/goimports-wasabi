@@ -1,0 +1,5 @@
+// merge empty import declarations
+package main
+
+import ()
+import _ "fmt"
