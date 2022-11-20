@@ -47,6 +47,7 @@ var data []entry = []entry{
 	{source: "merge_012.input", golden: "merge_012.golden"},
 	{source: "merge_013.input", golden: "merge_013.golden"},
 	{source: "merge_014.input", golden: "merge_014.golden"},
+	{source: "merge_015.input", golden: "merge_015.golden"},
 	{source: "merge_101.input", golden: "merge_101.golden"},
 	{source: "cgo_001.input", golden: "cgo_001.golden"},
 	{source: "cgo_002.input", golden: "cgo_002.golden"},
@@ -76,6 +77,7 @@ var data []entry = []entry{
 	{source: "merge_012.golden", golden: "merge_012.golden"},
 	{source: "merge_013.golden", golden: "merge_013.golden"},
 	{source: "merge_014.golden", golden: "merge_014.golden"},
+	{source: "merge_015.golden", golden: "merge_015.golden"},
 	// {source: "merge_101.golden", golden: "merge_101.golden"}, fails due to a bug of go fmt. cf. https://github.com/golang/go/issues/24472
 	{source: "cgo_001.golden", golden: "cgo_001.golden"},
 	{source: "cgo_002.golden", golden: "cgo_002.golden"},
