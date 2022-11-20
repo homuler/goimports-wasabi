@@ -8,6 +8,7 @@
 package fastwalk
 
 import (
+	"io/fs"
 	"os"
 )
 
@@ -20,8 +21,17 @@ func readDir(dirName string, fn func(dirName, entName string, typ os.FileMode) e
 	if err != nil {
 		return err
 	}
+	infos := make([]fs.FileInfo, 0, len(fis))
+	for _, entry := range fis {
+		info, err := entry.Info()
+		if err != nil {
+			return err
+		}
+		infos = append(infos, info)
+	}
+
 	skipFiles := false
-	for _, fi := range fis {
+	for _, fi := range infos {
 		if fi.Mode().IsRegular() && skipFiles {
 			continue
 		}
