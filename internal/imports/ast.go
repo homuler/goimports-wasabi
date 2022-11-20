@@ -38,6 +38,20 @@ func parseFile(fset *token.FileSet, filename string, src []byte, opt *Options) (
 	return parser.ParseFile(fset, filename, src, parserMode)
 }
 
+func needsNewlineAfter(cs []*ast.CommentGroup) bool {
+	if len(cs) == 0 {
+		return false
+	}
+	for i := len(cs) - 1; i >= 0; i-- {
+		c := cs[i]
+		if len(c.List) == 0 {
+			continue
+		}
+		return c.List[len(c.List)-1].Text[1] == '/'
+	}
+	return false
+}
+
 type SpecGroup int
 
 const (
@@ -718,10 +732,14 @@ func (sw *sourceWriter) writeImportDecl(decl *importDecl) {
 	}
 
 	sw.writeInlineComments(decl.preLparen)
+	if needsNewlineAfter(decl.preLparen) {
+		sw.writeNewline()
+	}
 	decl.node.Lparen = sw.pos
 	sw.writeString(token.LPAREN.String())
 	sw.writeInlineComments(decl.postLparen)
-	if len(decl.specs) > 0 || len(decl.bottom) > 0 {
+	// NOTE: if there's no specs and no other comments between parentheses, we don't need to insert a newline
+	if len(decl.specs) > 0 || len(decl.bottom) > 0 || needsNewlineAfter(decl.postLparen) {
 		sw.writeNewline()
 	}
 
@@ -756,7 +774,9 @@ func (sw *sourceWriter) writeImportDecl(decl *importDecl) {
 	}
 
 	if len(decl.bottom) > 0 {
-		sw.writeNewline()
+		if len(decl.specs) > 0 {
+			sw.writeNewline()
+		}
 		sw.writeComments(decl.bottom)
 	}
 

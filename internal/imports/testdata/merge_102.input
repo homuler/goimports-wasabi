@@ -1,0 +1,10 @@
+// merge comments
+package foo
+
+import/* prelparen comment */(/* postlparen comment */)
+import
+// prelparen comment
+( // postlparen comment
+
+	// bottom comment
+) // postrparen comment

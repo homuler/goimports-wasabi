@@ -1,0 +1,7 @@
+// merge empty import declarations
+package main
+
+import ( /*postlparen
+comment*/
+// bottom comment
+)

@@ -48,7 +48,9 @@ var data []entry = []entry{
 	{source: "merge_013.input", golden: "merge_013.golden"},
 	{source: "merge_014.input", golden: "merge_014.golden"},
 	{source: "merge_015.input", golden: "merge_015.golden"},
+	{source: "merge_016.input", golden: "merge_016.golden"},
 	{source: "merge_101.input", golden: "merge_101.golden"},
+	{source: "merge_102.input", golden: "merge_102.golden"},
 	{source: "cgo_001.input", golden: "cgo_001.golden"},
 	{source: "cgo_002.input", golden: "cgo_002.golden"},
 	{source: "cgo_003.input", golden: "cgo_003.golden"},
@@ -63,6 +65,8 @@ var data []entry = []entry{
 	{source: "format_003.input", golden: "format_003.input"},
 	{source: "format_004.input", golden: "format_004.input"},
 	{source: "format_005.input", golden: "format_005.input"},
+	{source: "format_006.input", golden: "format_006.input"},
+	{source: "format_007.input", golden: "format_007.input"},
 	{source: "merge_001.golden", golden: "merge_001.golden"},
 	{source: "merge_002.golden", golden: "merge_002.golden"},
 	{source: "merge_003.golden", golden: "merge_003.golden"},
@@ -78,7 +82,9 @@ var data []entry = []entry{
 	{source: "merge_013.golden", golden: "merge_013.golden"},
 	{source: "merge_014.golden", golden: "merge_014.golden"},
 	{source: "merge_015.golden", golden: "merge_015.golden"},
+	{source: "merge_016.golden", golden: "merge_016.golden"},
 	// {source: "merge_101.golden", golden: "merge_101.golden"}, fails due to a bug of go fmt. cf. https://github.com/golang/go/issues/24472
+	{source: "merge_102.golden", golden: "merge_102.golden"},
 	{source: "cgo_001.golden", golden: "cgo_001.golden"},
 	{source: "cgo_002.golden", golden: "cgo_002.golden"},
 	{source: "cgo_003.golden", golden: "cgo_003.golden"},
@@ -259,10 +265,16 @@ import/*prelparen comment*/(// postlparen comment
 )// postrparen comment
 // footer comment
 
+import(/*postlparen
+comment
+*/ // postlparen comment
+// bottom comment
+)
+
 // unrelated comments`,
 			f: func(t *testing.T, name string, sf *SourceFile) {
 				decls := sf.importDecls
-				assert.Len(t, decls, 3)
+				assert.Len(t, decls, 4)
 
 				runImportDeclTest(t, declValue{
 					specs: []specValue{},
@@ -282,6 +294,11 @@ import/*prelparen comment*/(// postlparen comment
 					bottom:     [][]string{{"// bottom comment"}},
 					footer:     [][]string{{"// footer comment"}},
 				}, decls[2])
+
+				runImportDeclTest(t, declValue{
+					postLparen: [][]string{{"/*postlparen\ncomment\n*/", "// postlparen comment"}},
+					bottom:     [][]string{{"// bottom comment"}},
+				}, decls[3])
 			},
 		},
 		{
