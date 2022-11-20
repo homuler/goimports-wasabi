@@ -1,5 +1,7 @@
 # goimports-wasabi
 
+[![Run Tests](https://github.com/homuler/goimports-wasabi/actions/workflows/test.yml/badge.svg)](https://github.com/homuler/goimports-wasabi/actions/workflows/test.yml)
+
 This is a fork of [`goimports`](https://pkg.go.dev/golang.org/x/tools/cmd/goimports), inspired by [the `gosimports` project](https://github.com/rinchsan/gosimports).
 `goimports-wasabi` also tries to solve [the import grouping/ordering problem](https://github.com/golang/go/issues/20818), but in a different way.
 
