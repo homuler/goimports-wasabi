@@ -910,8 +910,7 @@ func newSourceFile(src []byte, fileSet *token.FileSet, astFile *ast.File, option
 	return &sf
 }
 
-// sync synchronize astFile and tokenFile with importDecls.
-// This will change astFile and tokenFile.
+// sync synchronize sf.src with importDecls.
 func (sf *SourceFile) sync() error {
 	tokenFile := sf.tokenFile
 	startPos := tokenFile.Pos(tokenFile.Size())
