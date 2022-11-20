@@ -21,5 +21,4 @@ jobs:
         with:
           go-version: ${{ matrix.go }}
       - run: |
-          cd internal/imports
-          go test .
+          go test -cover ./...

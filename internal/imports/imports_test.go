@@ -13,6 +13,8 @@ import (
 	"go/token"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/homuler/goimports-wasabi/internal/diff"
@@ -28,6 +30,7 @@ func TestMain(m *testing.M) {
 
 type entry struct {
 	source, golden string
+	go19           bool
 }
 
 const datadir = "testdata"
@@ -56,8 +59,8 @@ var data []entry = []entry{
 	{source: "cgo_003.input", golden: "cgo_003.golden"},
 	{source: "cgo_004.input", golden: "cgo_004.golden"},
 	{source: "cgo_005.input", golden: "cgo_005.golden"},
-	{source: "cgo_006.input", golden: "cgo_006.golden"},
-	{source: "cgo_007.input", golden: "cgo_007.golden"},
+	{source: "cgo_006.input", golden: "cgo_006.golden", go19: true},
+	{source: "cgo_007.input", golden: "cgo_007.golden", go19: true},
 	{source: "cgo_008.input", golden: "cgo_008.golden"},
 	{source: "cgo_009.input", golden: "cgo_009.golden"},
 	{source: "fix_001.input", golden: "fix_001.golden"},
@@ -114,14 +117,20 @@ var options = &Options{
 }
 
 func TestProcess(t *testing.T) {
+	version := runtime.Version()
+
 	for _, e := range data {
 		source := filepath.Join(datadir, e.source)
 		golden := filepath.Join(datadir, e.golden)
-		t.Run(source, func(t *testing.T) {
-			if err := checkDiff(t, source, golden); err != nil {
-				t.Error(err)
-			}
-		})
+		if e.go19 && !strings.HasPrefix(version, "go1.19") {
+			t.Logf("Skipping %s because the Go version is incompatible", source)
+		} else {
+			t.Run(source, func(t *testing.T) {
+				if err := checkDiff(t, source, golden); err != nil {
+					t.Error(err)
+				}
+			})
+		}
 	}
 }
 
