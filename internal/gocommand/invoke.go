@@ -19,9 +19,8 @@ import (
 	"sync"
 	"time"
 
-	exec "golang.org/x/sys/execabs"
-
 	"github.com/homuler/goimports-wasabi/internal/event"
+	exec "golang.org/x/sys/execabs"
 )
 
 // An Runner will run go command invocations and serialize
