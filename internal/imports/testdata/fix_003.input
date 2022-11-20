@@ -1,0 +1,4 @@
+// insert a single import declaration
+/*comment*/package foo;func HelloWorld() {
+	fmt.Println("Hello, World!")
+}

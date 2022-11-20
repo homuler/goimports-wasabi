@@ -1,0 +1,8 @@
+// insert a single import declaration
+package foo
+
+import "fmt"
+
+func HelloWorld() {
+	fmt.Println("Hello, World!")
+}

@@ -950,6 +950,9 @@ func (sf *SourceFile) sync() error {
 		sw.delete()
 	}
 
+	if end < len(sf.src) && sf.src[end] == ';' {
+		end++
+	}
 	sw.writeByte(sf.src[end:]...)
 	sf.src = sw.output
 
@@ -1035,7 +1038,11 @@ func (sf *SourceFile) addNamedImport(name, path string) {
 	pkgLine := sf.tokenFile.Line(pkg)
 	declPos := pkg
 	for _, c := range sf.astFile.Comments {
-		if sf.tokenFile.Line(c.Pos()) > pkgLine {
+		cpos := c.Pos()
+		if cpos < pkg {
+			continue
+		}
+		if sf.tokenFile.Line(cpos) > pkgLine {
 			break
 		}
 		declPos = c.End()
