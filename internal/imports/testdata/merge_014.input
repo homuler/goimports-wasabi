@@ -4,4 +4,4 @@ package main
 // doc comment
 import ()
 
-import (/* postlparen comment */)
+import/* prelparen comment */(/* postlparen comment */)// postrparen comment

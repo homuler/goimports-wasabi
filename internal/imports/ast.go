@@ -558,13 +558,15 @@ func (idr *importDeclReader) readNext() (*importDecl, bool) {
 		}
 
 		lparenLine := idr.line(decl.node.Lparen)
-		firstSpecLine := tokenFile.LineCount() + 1
+		nextPos := d.Rparen // if len(d.Specs) == 0, then Rparen should be valid
+		limitLine := tokenFile.LineCount() + 1
 		if len(d.Specs) > 0 {
-			firstSpecLine = idr.line(d.Specs[0].Pos())
+			nextPos = d.Specs[0].Pos()
+			limitLine = idr.line(nextPos)
 		}
 
 		c := comments[idr.commentIndex]
-		for idr.line(c.Pos()) == lparenLine && idr.line(c.End()) < firstSpecLine {
+		for idr.line(c.Pos()) == lparenLine && c.End() <= nextPos && idr.line(c.End()) < limitLine {
 			decl.addPostLparen(c)
 			idr.commentIndex++
 			c = comments[idr.commentIndex]
