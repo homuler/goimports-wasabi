@@ -40,12 +40,12 @@ type Options struct {
 // Process implements golang.org/x/tools/imports.Process with explicit context in opt.Env.
 func Process(filename string, src []byte, opt *Options) (formatted []byte, err error) {
 	fileSet := token.NewFileSet()
-	file, adjust, src, err := parse(fileSet, filename, src, opt)
+	file, adjust, psrc, err := parse(fileSet, filename, src, opt)
 	if err != nil {
 		return nil, err
 	}
 
-	sf := newSourceFile(src, fileSet, file, opt)
+	sf := newSourceFile(psrc, fileSet, file, opt)
 	if !opt.FormatOnly {
 		if err := fixImports(sf, filename); err != nil {
 			return nil, err
@@ -60,8 +60,7 @@ func Process(filename string, src []byte, opt *Options) (formatted []byte, err e
 // If an adjust function is provided, it is called after formatting
 // with the original source (formatFile's src parameter) and the
 // formatted file, and returns the postpocessed result.
-func formatFile(sf *SourceFile, adjust func(orig []byte, src []byte) []byte) ([]byte, error) {
-	orig := sf.src
+func formatFile(sf *SourceFile, orig []byte, adjust func(orig []byte, src []byte) []byte) ([]byte, error) {
 	if err := sf.squashImportDecls(); err != nil {
 		return nil, err
 	}
