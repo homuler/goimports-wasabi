@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"go/ast"
+	"go/format"
 	"go/token"
 	"sort"
 	"strconv"
@@ -26,7 +27,7 @@ func pathValue(s *ast.ImportSpec) string {
 	return p
 }
 
-func needsNewlineAfter(cs []*ast.CommentGroup) bool {
+func needsNewlineAfter(cs ...*ast.CommentGroup) bool {
 	if len(cs) == 0 {
 		return false
 	}
@@ -183,6 +184,24 @@ func (decl *importDecl) distillCImports() ([]*importDecl, *importDecl) {
 	// NOTE: len(specs) can be zero
 	decl.specs = specs
 	return cdecls, decl
+}
+
+func (decl *importDecl) appendComments(comments []*ast.CommentGroup) []*ast.CommentGroup {
+	comments = append(comments, decl.header...)
+	comments = append(comments, decl.doc...)
+	comments = append(comments, decl.preLparen...)
+	comments = append(comments, decl.postLparen...)
+	for _, spec := range decl.specs {
+		comments = spec.appendComments(comments)
+	}
+	comments = append(comments, decl.stdLibDoc...)
+	comments = append(comments, decl.appEngineDoc...)
+	comments = append(comments, decl.foreignLibDoc...)
+	comments = append(comments, decl.localLibDoc...)
+	comments = append(comments, decl.bottom...)
+	comments = append(comments, decl.postRparen...)
+	comments = append(comments, decl.footer...)
+	return comments
 }
 
 func (decl *importDecl) addSpec(ss ...*importSpec) {
@@ -419,6 +438,15 @@ func (spec *importSpec) firstComment() string {
 		return ""
 	}
 	return spec.comment[0].Text()
+}
+
+func (spec *importSpec) appendComments(comments []*ast.CommentGroup) []*ast.CommentGroup {
+	comments = append(comments, spec.doc...)
+	comments = append(comments, spec.nameComment...)
+	comments = append(comments, spec.pathComment...)
+	comments = append(comments, spec.comment...)
+	comments = append(comments, spec.footer...)
+	return comments
 }
 
 func (spec *importSpec) isCSpec() bool {
@@ -764,21 +792,123 @@ func (sf *SourceFile) sync() error {
 	if end < len(sf.src) && sf.src[end] == ';' {
 		end++
 	}
+
+	for sw.pos < endPos {
+		sw.writeNewline()
+	}
+
+	reconstructAST := sw.pos > endPos || sf.options.ReconstructAST
 	sw.writeByte(sf.src[end:]...)
 	sf.src = sw.output
+	sf.tokenFile.SetLinesForContent(sf.src)
 
-	if sf.options.ReconstructAST {
+	if reconstructAST {
 		// If the total length of import declarations get larger than the original, reconstruct AST to correct other tokens' positions.
+		var options *Options
+		if sf.options.Fragment {
+			options = &Options{}
+			*options = *sf.options
+			options.Fragment = false
+		} else {
+			options = sf.options
+		}
+
 		sf.fileSet = token.NewFileSet()
-		file, _, _, err := parse(sf.fileSet, sf.tokenFile.Name(), sf.src, sf.options)
+		file, _, _, err := parse(sf.fileSet, sf.tokenFile.Name(), sf.src, options)
 
 		if err != nil {
-			fmt.Printf("parse error: %v\n", string(sf.src))
+			if sf.options.Env.Logf != nil {
+				sf.options.Env.Logf("[ERROR] failed to parse:\n%v", string(sf.src))
+			}
 			return fmt.Errorf("failed to reconstruct AST: %w", err)
 		}
 		sf.astFile = file
-		sf.tokenFile.SetLinesForContent(sf.src)
+		return nil
 	}
+
+	// Remove merged declarations and comments from AST.
+	newDecls := make([]ast.Decl, 0, len(sf.astFile.Decls))
+	newComments := make([]*ast.CommentGroup, 0, len(sf.astFile.Comments))
+	for _, c := range sf.astFile.Comments {
+		if c.Pos() >= startPos {
+			break
+		}
+		newComments = append(newComments, c)
+	}
+
+	for _, decl := range sf.importDecls {
+		if decl.isEmpty() {
+			continue
+		}
+
+		if len(decl.doc) > 0 {
+			decl.node.Doc = nil // reset Doc to sort comments
+			for _, doc := range decl.doc {
+				if decl.node.Doc == nil {
+					decl.node.Doc = doc
+					continue
+				}
+				decl.node.Doc.List = append(decl.node.Doc.List, doc.List...)
+			}
+			decl.doc = []*ast.CommentGroup{decl.node.Doc}
+		}
+
+		decl.node.Specs = nil // reset Specs to sort specs
+		for _, spec := range decl.specs {
+			if len(spec.doc) > 0 {
+				spec.node.Doc = nil // reset Doc to sort comments
+				for _, doc := range spec.doc {
+					if spec.node.Doc == nil {
+						spec.node.Doc = doc
+						continue
+					}
+					spec.node.Doc.List = append(spec.node.Doc.List, doc.List...)
+				}
+				spec.doc = []*ast.CommentGroup{spec.node.Doc}
+			}
+
+			if len(spec.comment) > 0 {
+				spec.node.Comment = nil // reset Comment to sort comments
+				i := 0
+				for _, doc := range spec.comment {
+					if spec.node.Comment == nil {
+						spec.node.Comment = doc
+						continue
+					}
+					if needsNewlineAfter(spec.node.Comment) {
+						break
+					}
+					spec.node.Comment.List = append(spec.node.Comment.List, doc.List...)
+					i++
+				}
+				specComments := make([]*ast.CommentGroup, 0, len(spec.comment)-i)
+				specComments = append(specComments, spec.node.Comment)
+				specComments = append(specComments, spec.comment[i+1:]...)
+				spec.comment = specComments
+			}
+			decl.node.Specs = append(decl.node.Specs, spec.node)
+		}
+		newComments = decl.appendComments(newComments)
+		newDecls = append(newDecls, decl.node)
+	}
+
+	for _, d := range sf.astFile.Decls {
+		if _, ok := astImportDecl(d); ok {
+			continue
+		}
+		newDecls = append(newDecls, d)
+	}
+	sf.astFile.Decls = newDecls
+
+	sort.Sort(byCommentPos(newComments))
+	for i, c := range sf.astFile.Comments {
+		if c.Pos() <= endPos {
+			continue
+		}
+		newComments = append(newComments, sf.astFile.Comments[i:]...)
+		break
+	}
+	sf.astFile.Comments = newComments
 
 	return nil
 }
@@ -807,6 +937,26 @@ func (sf *SourceFile) squashImportDecls() error {
 
 	sf.importDecls = decls
 	return sf.sync()
+}
+
+func (sf *SourceFile) format(adjust func(src []byte) []byte) ([]byte, error) {
+	formatted, err := sf.printAST()
+	if err != nil {
+		return nil, err
+	}
+
+	if adjust == nil {
+		return formatted, nil
+	}
+	return format.Source(adjust(formatted))
+}
+
+func (sf *SourceFile) printAST() ([]byte, error) {
+	var buf bytes.Buffer
+	if err := format.Node(&buf, sf.fileSet, sf.astFile); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }
 
 func (sf *SourceFile) addNamedImport(name, path string) {
@@ -871,6 +1021,11 @@ func (sf *SourceFile) deleteNamedImport(name, path string) {
 				copy(decl.specs[j:], decl.specs[j+1:])
 				decl.specs = decl.specs[:len(decl.specs)-1]
 
+				if !decl.node.Lparen.IsValid() {
+					// remove comments together
+					decl.doc = nil
+					decl.footer = nil
+				}
 				// e.g. import "math" -> import ()
 				if len(decl.specs) == 0 && !decl.hasDeclComments() {
 					decl.node.Lparen = spec.pos

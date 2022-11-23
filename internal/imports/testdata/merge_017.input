@@ -1,0 +1,6 @@
+// merge empty import declarations
+package main
+
+import () // postrparen comment (1)
+import () // postrparen comment (2)
+import () // postrparen comment (3)

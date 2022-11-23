@@ -9,7 +9,6 @@
 package imports
 
 import (
-	"go/format"
 	"go/parser"
 	"go/token"
 )
@@ -49,7 +48,7 @@ func Process(filename string, src []byte, opt *Options) (formatted []byte, err e
 			return nil, err
 		}
 	}
-	return formatFile(sf, src, adjust)
+	return formatFile(sf, adjust)
 }
 
 // FixImports returns a list of fixes to the imports that, when applied,
@@ -71,7 +70,7 @@ func FixImports(filename string, src []byte, opt *Options) (fixes []*ImportFix, 
 // ApplyFixes applies all of the fixes to the file and formats it. extraMode
 // is added in when parsing the file. src and opts must be specified, but no
 // env is needed.
-func ApplyFixes(fixes []*ImportFix, filename string, src []byte, opt *Options, extraMode parser.Mode) (formatted []byte, err error) {
+func ApplyFixes(fixes []*ImportFix, filename string, src []byte, opt *Options) (formatted []byte, err error) {
 	// Don't use parse() -- we don't care about fragments or statement lists
 	// here, and we need to work with unparseable files.
 	fileSet := token.NewFileSet()
@@ -84,7 +83,7 @@ func ApplyFixes(fixes []*ImportFix, filename string, src []byte, opt *Options, e
 	// Apply the fixes to the file.
 	apply(sf, fixes)
 
-	return formatFile(sf, src, nil)
+	return formatFile(sf, nil)
 }
 
 // formatFile formats the file syntax tree.
@@ -93,19 +92,9 @@ func ApplyFixes(fixes []*ImportFix, filename string, src []byte, opt *Options, e
 // If an adjust function is provided, it is called after formatting
 // with the original source (formatFile's src parameter) and the
 // formatted file, and returns the postpocessed result.
-func formatFile(sf *SourceFile, orig []byte, adjust func(orig []byte, src []byte) []byte) ([]byte, error) {
+func formatFile(sf *SourceFile, adjust func(src []byte) []byte) ([]byte, error) {
 	if err := sf.squashImportDecls(); err != nil {
 		return nil, err
 	}
-
-	src := sf.src
-	if adjust != nil {
-		src = adjust(orig, sf.src)
-	}
-
-	out, err := format.Source(src)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
+	return sf.format(adjust)
 }

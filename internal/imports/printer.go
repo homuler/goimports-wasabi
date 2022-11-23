@@ -31,14 +31,14 @@ func (sw *sourceWriter) writeImportDecl(decl *importDecl) {
 	}
 
 	sw.writeInlineComments(decl.preLparen)
-	if needsNewlineAfter(decl.preLparen) {
+	if needsNewlineAfter(decl.preLparen...) {
 		sw.writeNewline()
 	}
 	decl.node.Lparen = sw.pos
 	sw.writeString(token.LPAREN.String())
 	sw.writeInlineComments(decl.postLparen)
 	// NOTE: if there's no specs and no other comments between parentheses, we don't need to insert a newline
-	if len(decl.specs) > 0 || len(decl.bottom) > 0 || needsNewlineAfter(decl.postLparen) {
+	if len(decl.specs) > 0 || len(decl.bottom) > 0 || needsNewlineAfter(decl.postLparen...) {
 		sw.writeNewline()
 	}
 

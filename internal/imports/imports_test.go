@@ -52,6 +52,7 @@ var data []entry = []entry{
 	{source: "merge_014.input", golden: "merge_014.golden"},
 	{source: "merge_015.input", golden: "merge_015.golden"},
 	{source: "merge_016.input", golden: "merge_016.golden"},
+	{source: "merge_017.input", golden: "merge_017.golden"},
 	{source: "merge_101.input", golden: "merge_101.golden"},
 	{source: "merge_102.input", golden: "merge_102.golden"},
 	{source: "cgo_001.input", golden: "cgo_001.golden"},
@@ -92,7 +93,8 @@ var data []entry = []entry{
 	{source: "merge_014.golden", golden: "merge_014.golden"},
 	{source: "merge_015.golden", golden: "merge_015.golden"},
 	{source: "merge_016.golden", golden: "merge_016.golden"},
-	// {source: "merge_101.golden", golden: "merge_101.golden"}, fails due to a bug of go fmt. cf. https://github.com/golang/go/issues/24472
+	{source: "merge_017.golden", golden: "merge_017.golden"},
+	{source: "merge_101.golden", golden: "merge_101.golden"},
 	{source: "merge_102.golden", golden: "merge_102.golden"},
 	{source: "cgo_001.golden", golden: "cgo_001.golden"},
 	{source: "cgo_002.golden", golden: "cgo_002.golden"},
@@ -103,17 +105,6 @@ var data []entry = []entry{
 	{source: "cgo_007.golden", golden: "cgo_007.golden"},
 	{source: "cgo_008.golden", golden: "cgo_008.golden"},
 	{source: "cgo_009.golden", golden: "cgo_009.golden"},
-}
-
-var options = &Options{
-	TabWidth:    8,
-	TabIndent:   true,
-	Comments:    true,
-	Fragment:    true,
-	LocalPrefix: "local",
-	Env: &ProcessEnv{
-		GocmdRunner: &gocommand.Runner{},
-	},
 }
 
 func TestProcess(t *testing.T) {
@@ -200,6 +191,22 @@ func Hello() { fmt.Println("Hello") }
 package foo
 
 import "fmt" // line comment
+// footer comment
+`,
+		},
+		{
+			name: "remove unused import declarations",
+			src: `// package comment
+package foo
+
+// doc comment
+import "fmt" // line comment
+// footer comment
+
+func Hello() {}
+`,
+			expected: `// package comment
+package foo
 `,
 		},
 	}
@@ -215,12 +222,16 @@ import "fmt" // line comment
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			src := []byte(c.src)
+
+			opts.ExtraParserMode = parser.Mode(0)
 			fixes, err := FixImports("", src, opts)
 			if err != nil {
 				t.Error(err)
 				return
 			}
-			formatted, err := ApplyFixes(fixes, "", src, opts, parser.ImportsOnly)
+
+			opts.ExtraParserMode = parser.ImportsOnly
+			formatted, err := ApplyFixes(fixes, "", src, opts)
 			if err != nil {
 				t.Error(err)
 				return
@@ -643,6 +654,16 @@ import
 		},
 	}
 	fileSet := token.NewFileSet()
+	options := &Options{
+		TabWidth:    8,
+		TabIndent:   true,
+		Comments:    true,
+		Fragment:    true,
+		LocalPrefix: "local",
+		Env: &ProcessEnv{
+			GocmdRunner: &gocommand.Runner{},
+		},
+	}
 
 	for i, c := range cases {
 		src := []byte(c.src)
@@ -722,7 +743,7 @@ import/*name comment for f (2)*/f/*path comment for fmt (2)*/"fmt"// line commen
 							path:        "fmt",
 							name:        "f",
 							group:       StdLib,
-							doc:         [][]string{{"// doc comment for fmt (1)"}, {"// doc comment for fmt (2)"}},
+							doc:         [][]string{{"// doc comment for fmt (1)", "// doc comment for fmt (2)"}},
 							nameComment: [][]string{{"/*name comment for f (1)*/"}, {"/*name comment for f (2)*/"}},
 							pathComment: [][]string{{"/*path comment for fmt (1)*/"}, {"/*path comment for fmt (2)*/"}},
 							comment:     [][]string{{"// line comment for fmt (1)"}, {"// line comment for fmt (2)"}},
@@ -741,7 +762,7 @@ import/*name comment for f*/f/*path comment for fmt*/"fmt"// line comment for fm
 // footer comment for fmt
 
 // doc comment for context (1)
-import/*name comment for ctx (1)*/ctx/*path comment for context (1)*/"context"// line comment for context (1)
+import/*name comment for ctx (1)*/ctx/*path comment for context (1)*/"context"/*line comment for context (1)*/
 // footer comment for context (1)
 
 // header comment (1)
@@ -773,16 +794,16 @@ import/*path comment for fmt (2)*/"fmt"// line comment for fmt (2)
 							path:        "context",
 							name:        "ctx",
 							group:       StdLib,
-							doc:         [][]string{{"// doc comment for context (1)"}, {"// doc comment for context (2)"}},
+							doc:         [][]string{{"// doc comment for context (1)", "// doc comment for context (2)"}},
 							nameComment: [][]string{{"/*name comment for ctx (1)*/"}, {"/*name comment for ctx (2)*/"}},
 							pathComment: [][]string{{"/*path comment for context (1)*/"}, {"/*path comment for context (2)*/"}},
-							comment:     [][]string{{"// line comment for context (1)"}, {"// line comment for context (2)"}},
+							comment:     [][]string{{"/*line comment for context (1)*/", "// line comment for context (2)"}},
 							footer:      [][]string{{"// footer comment for context (1)"}, {"// footer comment for context (2)"}},
 						},
 						{
 							path:        "fmt",
 							group:       StdLib,
-							doc:         [][]string{{"// doc comment for fmt (1)"}, {"// doc comment for fmt (2)"}},
+							doc:         [][]string{{"// doc comment for fmt (1)", "// doc comment for fmt (2)"}},
 							pathComment: [][]string{{"/*path comment for fmt (1)*/"}, {"/*path comment for fmt (2)*/"}},
 							comment:     [][]string{{"// line comment for fmt (1)"}, {"// line comment for fmt (2)"}},
 							footer:      [][]string{{"// footer comment for fmt (1)"}, {"// footer comment for fmt (2)", "// footer comment for fmt (3)"}},
@@ -976,7 +997,7 @@ import/*prelparen comment (2)*/(// postlparen comment (2)
 						},
 					},
 					header:     [][]string{{"// header comment"}},
-					doc:        [][]string{{"// doc comment (1)"}, {"// doc comment (2)"}},
+					doc:        [][]string{{"// doc comment (1)", "// doc comment (2)"}},
 					preLparen:  [][]string{{"/*prelparen comment (1)*/"}, {"/*prelparen comment (2)*/"}},
 					postLparen: [][]string{{"// postlparen comment (1)"}, {"// postlparen comment (2)"}},
 					stdLibDoc:  [][]string{{"// stdlib comment (1)"}, {"// stdlib comment (2)"}},
@@ -1230,6 +1251,17 @@ import (
 	}
 
 	fileSet := token.NewFileSet()
+
+	options := &Options{
+		TabWidth:    8,
+		TabIndent:   true,
+		Comments:    true,
+		Fragment:    true,
+		LocalPrefix: "local",
+		Env: &ProcessEnv{
+			GocmdRunner: &gocommand.Runner{},
+		},
+	}
 
 	for i, c := range cases {
 		src := []byte(c.src)

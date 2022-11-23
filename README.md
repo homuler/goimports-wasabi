@@ -185,56 +185,6 @@ panic: invalid line number 2 (should be < 2)
 
 </details>
 
-## Known Issues
-
-`goimports-wasabi` runs [`format.Source`](https://pkg.go.dev/go/format#Source) internally only once.
-That means if [`gofmt` is not idempotent](https://github.com/golang/go/issues/24472), nor is `goimports-wasabi`.
-
-### Input
-
-```input.go
-import (
-	/* c (1) */"fmt" /* comment
-	for fmt */ // comment for fmt
-)
-
-import "context"
-// footer comment for context
-
-// doc comment for fmt
-import /* c (2) */ "fmt"
-```
-
-### Output
-
-`cat input.go | goimports-wasabi`
-
-```go
-import (
-	"context"
-	// footer comment for context
-
-	// doc comment for fmt
-	/* c (1) */ /* c (2) */
-	"fmt" /* comment
-	for fmt */ // comment for fmt
-)
-```
-
-`cat input.go | goimports-wasabi | goimports-wasabi`
-
-```go
-import (
-	"context"
-	// footer comment for context
-
-	// doc comment for fmt
-	/* c (1) */ /* c (2) */
-	"fmt"       /* comment
-	for fmt */ // comment for fmt
-)
-```
-
 ## License
 
 [BSD-3-Clause](https://github.com/homuler/goimports-wasabi/blob/main/LICENSE)

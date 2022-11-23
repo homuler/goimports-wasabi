@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-func parse(fset *token.FileSet, filename string, src []byte, opt *Options) (*ast.File, func(orig, src []byte) []byte, []byte, error) {
+func parse(fset *token.FileSet, filename string, src []byte, opt *Options) (*ast.File, func(src []byte) []byte, []byte, error) {
 	parserMode := parser.Mode(0)
 	if opt.Comments {
 		parserMode |= parser.ParseComments
@@ -50,7 +50,8 @@ func parse(fset *token.FileSet, filename string, src []byte, opt *Options) (*ast
 			return file, nil, psrc, nil
 		}
 
-		adjust := func(orig, src []byte) []byte {
+		orig := src
+		adjust := func(src []byte) []byte {
 			// Remove the package clause.
 			src = src[len(prefix):]
 			return matchSpace(orig, src)
@@ -72,7 +73,8 @@ func parse(fset *token.FileSet, filename string, src []byte, opt *Options) (*ast
 	fsrc := append(append([]byte("package p; func _() {"), src...), '}')
 	file, err = parser.ParseFile(fset, filename, fsrc, parserMode)
 	if err == nil {
-		adjust := func(orig, src []byte) []byte {
+		orig := src
+		adjust := func(src []byte) []byte {
 			// Remove the wrapping.
 			// Gofmt has turned the ; into a \n\n.
 			src = src[len("package p\n\nfunc _() {"):]
