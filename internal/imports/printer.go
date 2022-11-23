@@ -142,11 +142,11 @@ func (sw *sourceWriter) writeInlineComments(docs []*ast.CommentGroup) {
 
 	for _, doc := range docs {
 		for i, c := range doc.List {
-			c.Slash = sw.pos
 			if shouldInsertNewline {
 				sw.writeNewline()
 				shouldInsertNewline = false
 			}
+			c.Slash = sw.pos
 			sw.writeString(c.Text)
 			if c.Text[1] == '/' {
 				shouldInsertNewline = true
