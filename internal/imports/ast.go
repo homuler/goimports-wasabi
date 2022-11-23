@@ -643,7 +643,11 @@ func (idr *importDeclReader) readNext() (*importDecl, bool) {
 		}
 	}
 
-	decl.addFooter(idr.readFooterComments(decl.end, nextPos, idr.line(nextPos))...)
+	nextLine := idr.line(nextPos)
+	if nextPos == idr.maxPos {
+		nextLine += 2 // any greater values will do
+	}
+	decl.addFooter(idr.readFooterComments(decl.end, nextPos, nextLine)...)
 	return decl, true
 }
 

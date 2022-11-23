@@ -2,6 +2,8 @@
 package foo
 
 import/* prelparen comment */(/* postlparen comment */)
+// footer comment
+
 import
 // prelparen comment
 ( // postlparen comment
