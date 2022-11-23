@@ -118,33 +118,6 @@ var options = &Options{
 
 func TestProcess(t *testing.T) {
 	version := runtime.Version()
-
-	for _, e := range data {
-		source := filepath.Join(datadir, e.source)
-		golden := filepath.Join(datadir, e.golden)
-		if e.go19 && !strings.HasPrefix(version, "go1.19") {
-			t.Logf("Skipping %s because the Go version is incompatible", source)
-		} else {
-			t.Run(source, func(t *testing.T) {
-				if err := checkDiff(t, source, golden); err != nil {
-					t.Error(err)
-				}
-			})
-		}
-	}
-}
-
-func checkDiff(t *testing.T, source, golden string) error {
-	src, err := os.ReadFile(source)
-	if err != nil {
-		return err
-	}
-
-	gld, err := os.ReadFile(golden)
-	if err != nil {
-		return err
-	}
-
 	options := &Options{
 		TabWidth:    8,
 		TabIndent:   true,
@@ -156,12 +129,41 @@ func checkDiff(t *testing.T, source, golden string) error {
 		},
 	}
 
+	for _, e := range data {
+		source := filepath.Join(datadir, e.source)
+		golden := filepath.Join(datadir, e.golden)
+
+		if e.go19 && !strings.HasPrefix(version, "go1.19") {
+			t.Logf("Skipping %s because the Go version is incompatible", source)
+			continue
+		}
+
+		t.Run(source, func(t *testing.T) {
+			if err := runProcess(t, source, golden, options); err != nil {
+				t.Error(err)
+			}
+		})
+	}
+}
+
+func runProcess(t *testing.T, source, golden string, options *Options) error {
+	src, err := os.ReadFile(source)
+	if err != nil {
+		return err
+	}
+
+	gld, err := os.ReadFile(golden)
+	if err != nil {
+		return err
+	}
+
+	options.ReconstructAST = false
 	result, err := Process(source, src, options)
 	if err != nil {
 		return err
 	}
-	if !bytes.Equal(result, gld) {
-		return errors.New(string(diff.Diff(source+".result", result, golden, gld)))
+	if err := checkDiff(source+".result", result, golden, gld); err != nil {
+		return err
 	}
 
 	// The output should not change depending on the execution path
@@ -170,10 +172,71 @@ func checkDiff(t *testing.T, source, golden string) error {
 	if err != nil {
 		return err
 	}
-	if !bytes.Equal(result, gld) {
-		return errors.New(string(diff.Diff(source+".result", result, golden, gld)))
+	if err := checkDiff(source+".result", result, golden, gld); err != nil {
+		return err
 	}
 
+	return nil
+}
+
+func TestApplyFixes(t *testing.T) {
+	type testcase struct {
+		name     string
+		src      string
+		expected string
+	}
+	cases := []testcase{
+		{
+			name: "parse import declarations",
+			src: `// package comment
+package foo
+
+import "fmt" // line comment
+// footer comment
+
+func Hello() { fmt.Println("Hello") }
+`,
+			expected: `// package comment
+package foo
+
+import "fmt" // line comment
+`,
+		},
+	}
+
+	opts := &Options{
+		TabWidth:    8,
+		TabIndent:   true,
+		Comments:    true,
+		Fragment:    true,
+		LocalPrefix: "local",
+		Env:         &ProcessEnv{},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			src := []byte(c.src)
+			fixes, err := FixImports("", src, opts)
+			if err != nil {
+				t.Error(err)
+				return
+			}
+			formatted, err := ApplyFixes(fixes, "", src, opts, parser.ImportsOnly)
+			if err != nil {
+				t.Error(err)
+				return
+			}
+			expected := []byte(c.expected)
+			if err := checkDiff("formatted", formatted, "expected", expected); err != nil {
+				t.Error(err)
+			}
+		})
+	}
+}
+
+func checkDiff(srcName string, src []byte, dstName string, dst []byte) error {
+	if !bytes.Equal(src, dst) {
+		return errors.New(string(diff.Diff(srcName, src, dstName, dst)))
+	}
 	return nil
 }
 
